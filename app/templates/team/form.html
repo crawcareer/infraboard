@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit team member' if user else 'Add team member' }}{% endblock %}
+{% block content %}
+<h2>{{ 'Edit team member' if user else 'Add team member' }}</h2>
+<div class="card mt-3">
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-control" name="name" value="{{ (form.name if form else user.name) or '' }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" name="email" value="{{ (form.email if form else user.email) or '' }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Role</label>
+        <select class="form-select" name="role">
+          {% for r in roles %}
+          <option value="{{ r }}" {% if (form.role if form else user.role) == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if user %}
+      <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="active" name="active" {% if user.active %}checked{% endif %}>
+        <label class="form-check-label" for="active">Active</label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">New password (leave blank to keep current)</label>
+        <input type="password" class="form-control" name="password" minlength="8">
+      </div>
+      {% else %}
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password" minlength="8" required>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{{ url_for('auth.team_list') }}" class="btn btn-link">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

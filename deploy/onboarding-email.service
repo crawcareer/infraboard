@@ -1,0 +1,13 @@
+[Unit]
+Description=Infradapt Onboarding Tracker - daily task summary email
+After=network.target
+
+[Service]
+Type=oneshot
+User=onboarding
+Group=onboarding
+WorkingDirectory=/opt/onboarding-app
+EnvironmentFile=/opt/onboarding-app/.env
+ExecStart=/opt/onboarding-app/venv/bin/python send_daily_summary.py
+StandardOutput=append:/var/log/onboarding-app/email-summary.log
+StandardError=append:/var/log/onboarding-app/email-summary.error.log

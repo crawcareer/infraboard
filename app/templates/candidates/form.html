@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit candidate' if candidate else 'New candidate' }}{% endblock %}
+{% block content %}
+<h2>{{ 'Edit candidate' if candidate else 'New candidate' }}</h2>
+<div class="card mt-3">
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-control" name="name" value="{{ (form.name if form else candidate.name) or '' }}" required>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" name="email" value="{{ (form.email if form else candidate.email) or '' }}">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-control" name="phone" value="{{ (form.phone if form else candidate.phone) or '' }}">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Position applied for</label>
+        <input type="text" class="form-control" name="position" value="{{ (form.position if form else candidate.position) or '' }}">
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" name="status">
+            {% for s in candidate_statuses %}
+            <option value="{{ s }}" {% if (form.status if form else candidate.status) == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Start date</label>
+          <input type="date" class="form-control" name="start_date" value="{{ (form.start_date if form else (candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '')) or '' }}">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{{ url_for('candidates.list_candidates') }}" class="btn btn-link">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

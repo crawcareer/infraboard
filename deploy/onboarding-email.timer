@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Infradapt Onboarding daily task summary email every day at 07:00
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+Unit=onboarding-email.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row mb-4">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">My Tasks</div>
+      <div class="card-body">
+        {% if my_tasks %}
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th>Task</th>
+              <th>Timeline</th>
+              <th>Due date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in my_tasks %}
+            <tr class="{{ 'table-overdue' if t.is_overdue else ('table-due-today' if t.is_due_today else '') }}">
+              <td><a href="{{ url_for('candidates.detail', candidate_id=t.candidate_id) }}">{{ t.candidate.name }}</a></td>
+              <td>{{ t.title }}</td>
+              <td>{{ 'Pre-Hire' if t.timeline_type == 'pre_hire' else 'Post-Hire' }}</td>
+              <td>
+                {{ t.due_date.strftime('%Y-%m-%d') if t.due_date else '-' }}
+                {% if t.is_overdue %}<span class="badge bg-danger">Overdue</span>
+                {% elif t.is_due_today %}<span class="badge bg-warning text-dark">Due today</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">You have no pending tasks. Nice work.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Candidates by Status</div>
+      <div class="card-body">
+        {% for status, items in candidates_by_status.items() %}
+        <div class="d-flex justify-content-between border-bottom py-1">
+          <span class="text-capitalize">{{ status }}</span>
+          <span class="badge bg-secondary">{{ items|length }}</span>
+        </div>
+        {% endfor %}
+        <a href="{{ url_for('candidates.list_candidates') }}" class="btn btn-sm btn-outline-primary mt-3">View all candidates</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

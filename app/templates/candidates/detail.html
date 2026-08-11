@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "candidates/_timeline_section.html" import timeline_section %}
+{% block title %}{{ candidate.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h2>{{ candidate.name }}</h2>
+    <span class="badge bg-info text-dark badge-status">{{ candidate.status }}</span>
+    {% if candidate.position %}<span class="text-muted">&mdash; {{ candidate.position }}</span>{% endif %}
+  </div>
+  <div>
+    <a href="{{ url_for('candidates.edit_candidate', candidate_id=candidate.id) }}" class="btn btn-outline-secondary">Edit</a>
+    <form method="post" action="{{ url_for('candidates.delete_candidate', candidate_id=candidate.id) }}" class="d-inline" onsubmit="return confirm('Delete this candidate and all related data?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-outline-danger">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-3"><strong>Email:</strong> {{ candidate.email or '-' }}</div>
+      <div class="col-md-3"><strong>Phone:</strong> {{ candidate.phone or '-' }}</div>
+      <div class="col-md-3"><strong>Start date:</strong> {{ candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '-' }}</div>
+      <div class="col-md-3"><strong>Created:</strong> {{ candidate.created_at.strftime('%Y-%m-%d') }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="mb-4">
+  <form method="post" action="{{ url_for('candidates.generate_timelines', candidate_id=candidate.id) }}" onsubmit="return confirm('Generate/regenerate Pre-Hire and Post-Hire timelines from the current templates? This replaces any previously generated events for this candidate.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-success" {% if not has_templates %}disabled title="No timeline templates exist yet"{% endif %}>
+      Generate timelines from templates
+    </button>
+    {% if not candidate.start_date %}
+    <span class="text-muted small ms-2">Tip: set a start date so due dates can be calculated.</span>
+    {% endif %}
+  </form>
+</div>
+
+<div class="row">
+  <div class="col-lg-7">
+    {{ timeline_section(candidate, pre_hire, 'pre_hire', 'Pre-Hire Timeline', users, csrf_token) }}
+    {{ timeline_section(candidate, post_hire, 'post_hire', 'Post-Hire Timeline', users, csrf_token) }}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header">Resumes</div>
+      <div class="card-body">
+        <ul class="list-group mb-3">
+          {% for r in resumes %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <a href="{{ url_for('candidates.download_resume', candidate_id=candidate.id, resume_id=r.id) }}">{{ r.original_filename }}</a>
+              <div class="text-muted small">
+                Uploaded {{ r.uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                {% if r.uploaded_by_user %}by {{ r.uploaded_by_user.name }}{% endif %}
+              </div>
+            </div>
+            <form method="post" action="{{ url_for('candidates.delete_resume', candidate_id=candidate.id, resume_id=r.id) }}" onsubmit="return confirm('Delete this resume?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </li>
+          {% else %}
+          <li class="list-group-item text-muted">No resumes uploaded.</li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="{{ url_for('candidates.upload_resume', candidate_id=candidate.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="input-group">
+            <input type="file" class="form-control" name="resume_file" accept=".pdf,.doc,.docx" multiple required>
+            <button class="btn btn-primary" type="submit">Upload</button>
+          </div>
+          <div class="form-text">PDF, DOC, or DOCX. Multiple files allowed.</div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Notes</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('candidates.add_note', candidate_id=candidate.id) }}" class="mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <textarea name="body" class="form-control mb-2" rows="3" placeholder="Add a note..." required></textarea>
+          <button type="submit" class="btn btn-primary btn-sm">Add note</button>
+        </form>
+        {% for n in notes %}
+        <div class="border-bottom pb-2 mb-2">
+          <div class="d-flex justify-content-between">
+            <strong>{{ n.author.name if n.author else 'Unknown' }}</strong>
+            <span class="text-muted small">{{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          </div>
+          <p class="mb-1" style="white-space: pre-wrap;">{{ n.body }}</p>
+          {% if current_user.is_admin or n.author_id == current_user.id %}
+          <form method="post" action="{{ url_for('candidates.delete_note', candidate_id=candidate.id, note_id=n.id) }}" onsubmit="return confirm('Delete this note?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-link text-danger p-0">Delete</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="text-muted">No notes yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

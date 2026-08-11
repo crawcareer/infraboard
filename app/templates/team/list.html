@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Team{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Team</h2>
+  <a href="{{ url_for('auth.team_new') }}" class="btn btn-primary">Add team member</a>
+</div>
+
+<table class="table table-bordered bg-white align-middle">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Status</th>
+      <th class="text-end">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td>{{ user.name }}</td>
+      <td>{{ user.email }}</td>
+      <td><span class="badge bg-{{ 'primary' if user.role == 'admin' else 'secondary' }} badge-status">{{ user.role }}</span></td>
+      <td>{% if user.active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+      <td class="text-end">
+        <a href="{{ url_for('auth.team_edit', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        <form action="{{ url_for('auth.team_reset_password', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Reset password for {{ user.name }}?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-warning">Reset password</button>
+        </form>
+        {% if user.id != current_user.id %}
+        <form action="{{ url_for('auth.team_delete', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Remove {{ user.name }} from the team?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-center text-muted">No team members yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

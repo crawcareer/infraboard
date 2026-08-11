@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h2>{{ template.name }}</h2>
+    <p class="text-muted mb-0">{{ template.description or '' }}</p>
+  </div>
+  <a href="{{ url_for('templates_admin.list_templates') }}" class="btn btn-outline-secondary">Back to templates</a>
+</div>
+
+<p class="text-muted">Day offset is relative to the hire's start date (negative = before start date, positive = after).</p>
+
+<table class="table table-bordered bg-white align-middle">
+  <thead>
+    <tr>
+      <th style="width:8rem;">Order</th>
+      <th>Title</th>
+      <th>Description</th>
+      <th style="width:8rem;">Day offset</th>
+      <th style="width:10rem;">Default role</th>
+      <th class="text-end" style="width:14rem;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td>
+        <form method="post" action="{{ url_for('templates_admin.move_event_up', template_id=template.id, event_id=e.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary" {% if loop.first %}disabled{% endif %}>&uarr;</button>
+        </form>
+        <form method="post" action="{{ url_for('templates_admin.move_event_down', template_id=template.id, event_id=e.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary" {% if loop.last %}disabled{% endif %}>&darr;</button>
+        </form>
+      </td>
+      <td>{{ e.title }}</td>
+      <td>{{ e.description or '-' }}</td>
+      <td>{{ e.day_offset }}</td>
+      <td>{{ e.default_assignee_role or '-' }}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit-te-{{ e.id }}">Edit</button>
+        <form method="post" action="{{ url_for('templates_admin.delete_event', template_id=template.id, event_id=e.id) }}" class="d-inline" onsubmit="return confirm('Delete this event?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    <tr class="collapse" id="edit-te-{{ e.id }}">
+      <td colspan="6">
+        <form method="post" action="{{ url_for('templates_admin.edit_event', template_id=template.id, event_id=e.id) }}" class="row g-2 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="col-md-3">
+            <label class="form-label small">Title</label>
+            <input type="text" name="title" class="form-control form-control-sm" value="{{ e.title }}" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Description</label>
+            <input type="text" name="description" class="form-control form-control-sm" value="{{ e.description or '' }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Day offset</label>
+            <input type="number" name="day_offset" class="form-control form-control-sm" value="{{ e.day_offset }}" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Default role</label>
+            <select name="default_assignee_role" class="form-select form-select-sm">
+              <option value="">None</option>
+              {% for r in roles %}
+              <option value="{{ r }}" {% if e.default_assignee_role == r %}selected{% endif %}>{{ r }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+          </div>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted">No events yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="card">
+  <div class="card-header">Add event</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('templates_admin.add_event', template_id=template.id) }}" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="col-md-3">
+        <label class="form-label small">Title</label>
+        <input type="text" name="title" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Description</label>
+        <input type="text" name="description" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">Day offset</label>
+        <input type="number" name="day_offset" class="form-control" value="0" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">Default role</label>
+        <select name="default_assignee_role" class="form-select">
+          <option value="">None</option>
+          {% for r in roles %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Add event</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

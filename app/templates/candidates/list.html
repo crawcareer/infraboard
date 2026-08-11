@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Candidates{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Candidates</h2>
+  <a href="{{ url_for('candidates.new_candidate') }}" class="btn btn-primary">Add candidate</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="status" class="form-select" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in candidate_statuses %}
+      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<table class="table table-bordered bg-white align-middle">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Position</th>
+      <th>Status</th>
+      <th>Start date</th>
+      <th>Email</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in candidates %}
+    <tr onclick="window.location='{{ url_for('candidates.detail', candidate_id=c.id) }}'" style="cursor:pointer;">
+      <td>{{ c.name }}</td>
+      <td>{{ c.position or '-' }}</td>
+      <td><span class="badge bg-info text-dark badge-status">{{ c.status }}</span></td>
+      <td>{{ c.start_date.strftime('%Y-%m-%d') if c.start_date else '-' }}</td>
+      <td>{{ c.email or '-' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-center text-muted">No candidates found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
