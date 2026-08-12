@@ -17,6 +17,7 @@ from flask import (
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
+from app.emailing import render_infradapt_onboarding_email
 from app.extensions import db
 from app.models import (
     Candidate,
@@ -27,6 +28,9 @@ from app.models import (
     TemplateEvent,
     HireEvent,
     CANDIDATE_STATUSES,
+    TASK_TYPE_MANUAL,
+    TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
+    INFRADAPT_SUPPORT_EMAIL,
 )
 
 candidates_bp = Blueprint("candidates", __name__, url_prefix="/candidates")
@@ -452,6 +456,127 @@ def add_event(candidate_id):
     return redirect(url_for("candidates.detail", candidate_id=candidate.id))
 
 
+@candidates_bp.route("/<int:candidate_id>/events/email-task/new", methods=["GET", "POST"])
+@login_required
+def new_email_task(candidate_id):
+    candidate = Candidate.query.get_or_404(candidate_id)
+
+    if request.method == "POST":
+        step = request.form.get("step", "preview")
+        due_date_raw = request.form.get("due_date", "").strip()
+        timeline_type = request.form.get("timeline_type", "pre_hire")
+
+        error = None
+        due_date = None
+        if not due_date_raw:
+            error = "Due date is required — this is the date the email will be sent."
+        else:
+            try:
+                due_date = datetime.strptime(due_date_raw, "%Y-%m-%d").date()
+            except ValueError:
+                error = "Due date must be a valid date."
+
+        if not error and timeline_type not in ("pre_hire", "post_hire"):
+            error = "Invalid timeline type."
+
+        if error:
+            flash(error, "danger")
+            return render_template(
+                "candidates/email_task_form.html",
+                candidate=candidate,
+                due_date=due_date_raw,
+                timeline_type=timeline_type,
+                subject=request.form.get("subject"),
+                body=request.form.get("body"),
+                support_email=INFRADAPT_SUPPORT_EMAIL,
+                previewed=(step == "create"),
+            )
+
+        if step == "preview":
+            existing = (
+                HireEvent.query.filter_by(
+                    candidate_id=candidate.id,
+                    task_type=TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
+                    status="pending",
+                )
+                .filter(HireEvent.email_sent_at.is_(None))
+                .first()
+            )
+            if existing:
+                flash(
+                    "This candidate already has a pending, unsent Infradapt "
+                    "onboarding email task. Delete it first if you don't want "
+                    "to send two emails.",
+                    "warning",
+                )
+
+            subject, body = render_infradapt_onboarding_email(candidate, current_user)
+            return render_template(
+                "candidates/email_task_form.html",
+                candidate=candidate,
+                due_date=due_date_raw,
+                timeline_type=timeline_type,
+                subject=subject,
+                body=body,
+                support_email=INFRADAPT_SUPPORT_EMAIL,
+                previewed=True,
+            )
+
+        # step == "create"
+        subject = request.form.get("subject", "").strip()
+        body = request.form.get("body", "").strip()
+
+        if not subject or not body:
+            flash("Subject and body cannot be empty.", "danger")
+            return render_template(
+                "candidates/email_task_form.html",
+                candidate=candidate,
+                due_date=due_date_raw,
+                timeline_type=timeline_type,
+                subject=subject,
+                body=body,
+                support_email=INFRADAPT_SUPPORT_EMAIL,
+                previewed=True,
+            )
+
+        max_order = db.session.query(db.func.max(HireEvent.sort_order)).filter_by(
+            candidate_id=candidate.id, timeline_type=timeline_type
+        ).scalar() or 0
+
+        event = HireEvent(
+            candidate_id=candidate.id,
+            title="Send Infradapt onboarding request",
+            task_type=TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
+            email_subject=subject,
+            email_body=body,
+            due_date=due_date,
+            assigned_to=None,
+            status="pending",
+            timeline_type=timeline_type,
+            sort_order=max_order + 1,
+            created_by=current_user.id,
+        )
+        db.session.add(event)
+        db.session.commit()
+        flash("Infradapt onboarding email task created.", "success")
+        return redirect(url_for("candidates.detail", candidate_id=candidate.id))
+
+    default_timeline_type = request.args.get("timeline_type", "pre_hire")
+    if default_timeline_type not in ("pre_hire", "post_hire"):
+        default_timeline_type = "pre_hire"
+
+    return render_template(
+        "candidates/email_task_form.html",
+        candidate=candidate,
+        due_date="",
+        timeline_type=default_timeline_type,
+        subject=None,
+        body=None,
+        support_email=INFRADAPT_SUPPORT_EMAIL,
+        previewed=False,
+    )
+
+
 @candidates_bp.route("/<int:candidate_id>/events/<int:event_id>/edit", methods=["POST"])
 @login_required
 def edit_event(candidate_id, event_id):
@@ -502,6 +627,10 @@ def assign_event(candidate_id, event_id):
     if event.candidate_id != candidate_id:
         abort(404)
 
+    if event.task_type != TASK_TYPE_MANUAL:
+        flash("This task's assignee cannot be changed.", "danger")
+        return redirect(url_for("candidates.detail", candidate_id=candidate_id))
+
     assigned_to = request.form.get("assigned_to", "").strip()
     if assigned_to:
         try:
@@ -527,6 +656,10 @@ def toggle_event(candidate_id, event_id):
     event = HireEvent.query.get_or_404(event_id)
     if event.candidate_id != candidate_id:
         abort(404)
+
+    if event.task_type != TASK_TYPE_MANUAL:
+        flash("This task is completed automatically when its email is sent.", "danger")
+        return redirect(url_for("candidates.detail", candidate_id=candidate_id))
 
     event.status = "done" if event.status == "pending" else "pending"
     db.session.commit()

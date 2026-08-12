@@ -173,6 +173,7 @@ def team_delete(user_id):
     from app.models import HireEvent, Note, Resume
 
     HireEvent.query.filter_by(assigned_to=user.id).update({"assigned_to": None})
+    HireEvent.query.filter_by(created_by=user.id).update({"created_by": None})
     Note.query.filter_by(author_id=user.id).update({"author_id": None})
     Resume.query.filter_by(uploaded_by=user.id).update({"uploaded_by": None})
 

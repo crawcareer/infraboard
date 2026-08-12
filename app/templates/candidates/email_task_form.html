@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Send Infradapt onboarding request{% endblock %}
+{% block content %}
+<h2>Send Infradapt onboarding request</h2>
+<p class="text-muted">
+  Candidate: <strong>{{ candidate.name }}</strong>
+  &mdash; Start date: <strong>{{ candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else 'not set' }}</strong>
+</p>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Send date</label>
+          <input type="date" class="form-control" name="due_date" value="{{ due_date }}" required>
+          <div class="form-text">The email is sent automatically on this date.</div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Timeline</label>
+          <select class="form-select" name="timeline_type">
+            <option value="pre_hire" {% if timeline_type == 'pre_hire' %}selected{% endif %}>Pre-Hire</option>
+            <option value="post_hire" {% if timeline_type == 'post_hire' %}selected{% endif %}>Post-Hire</option>
+          </select>
+        </div>
+      </div>
+
+      {% if previewed %}
+      <hr>
+      <div class="mb-3">
+        <label class="form-label">To</label>
+        <input type="text" class="form-control" value="{{ support_email }}" disabled>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Cc / Reply-To</label>
+        <input type="text" class="form-control" value="{{ current_user.name }} <{{ current_user.email }}> (point of contact)" disabled>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Subject</label>
+        <input type="text" class="form-control" name="subject" value="{{ subject or '' }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Body</label>
+        <textarea class="form-control" name="body" rows="10" required>{{ body or '' }}</textarea>
+        <div class="form-text">Edit the subject/body as needed before creating the task. It will be sent exactly as written here.</div>
+      </div>
+
+      <button type="submit" name="step" value="create" class="btn btn-success">Create task</button>
+      <button type="submit" name="step" value="preview" class="btn btn-outline-secondary" formnovalidate>Re-preview</button>
+      {% else %}
+      <button type="submit" name="step" value="preview" class="btn btn-primary">Preview email</button>
+      {% endif %}
+      <a href="{{ url_for('candidates.detail', candidate_id=candidate.id) }}" class="btn btn-link">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Infradapt Onboarding Tracker - send scheduled onboarding request emails
+After=network.target
+
+[Service]
+Type=oneshot
+User=onboarding
+Group=onboarding
+WorkingDirectory=/opt/onboarding-app
+EnvironmentFile=/opt/onboarding-app/.env
+ExecStart=/opt/onboarding-app/venv/bin/python send_scheduled_emails.py
+StandardOutput=append:/var/log/onboarding-app/scheduled-emails.log
+StandardError=append:/var/log/onboarding-app/scheduled-emails.error.log

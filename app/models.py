@@ -21,6 +21,12 @@ CANDIDATE_STATUSES = (
 TIMELINE_TYPES = ("pre_hire", "post_hire")
 HIRE_EVENT_STATUSES = ("pending", "done")
 
+TASK_TYPE_MANUAL = "manual"
+TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL = "infradapt_onboarding_email"
+TASK_TYPES = (TASK_TYPE_MANUAL, TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL)
+
+INFRADAPT_SUPPORT_EMAIL = "getsupport@Infradapt.com"
+
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -35,7 +41,12 @@ class User(UserMixin, db.Model):
 
     notes = db.relationship("Note", backref="author", lazy="dynamic")
     resumes_uploaded = db.relationship("Resume", backref="uploaded_by_user", lazy="dynamic")
-    assigned_events = db.relationship("HireEvent", backref="assignee", lazy="dynamic")
+    assigned_events = db.relationship(
+        "HireEvent",
+        foreign_keys="HireEvent.assigned_to",
+        backref="assignee",
+        lazy="dynamic",
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -162,6 +173,20 @@ class HireEvent(db.Model):
     timeline_type = db.Column(db.String(20), nullable=False, default="pre_hire")
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # --- Task type / templated email tasks ---------------------------------
+    # Most HireEvents are plain manual checklist items (task_type="manual").
+    # A task_type of TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL instead represents
+    # a task whose completion is driven by send_scheduled_emails.py sending
+    # the stored email_subject/email_body on the task's due_date, rather
+    # than a human toggling it done.
+    task_type = db.Column(db.String(30), nullable=False, default=TASK_TYPE_MANUAL)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    email_subject = db.Column(db.String(255), nullable=True)
+    email_body = db.Column(db.Text, nullable=True)
+    email_sent_at = db.Column(db.DateTime, nullable=True)
+
+    creator = db.relationship("User", foreign_keys=[created_by])
 
     @property
     def is_overdue(self):

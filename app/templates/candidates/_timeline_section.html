@@ -16,14 +16,29 @@
       {% for e in events %}
       <tr class="{{ 'table-overdue' if e.is_overdue else ('table-due-today' if e.is_due_today else '') }}">
         <td>
+          {% if e.task_type == 'manual' %}
           <form method="post" action="{{ url_for('candidates.toggle_event', candidate_id=candidate.id, event_id=e.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if e.status == 'done' %}checked{% endif %}>
           </form>
+          {% else %}
+          <span title="Completed automatically when the email is sent">&#128231;</span>
+          {% endif %}
         </td>
         <td>
           <strong>{{ e.title }}</strong>
+          {% if e.task_type != 'manual' %}<span class="badge bg-secondary">Email task</span>{% endif %}
           {% if e.description %}<div class="text-muted small">{{ e.description }}</div>{% endif %}
+          {% if e.task_type != 'manual' %}
+          <div class="text-muted small">
+            {% if e.email_sent_at %}
+            Sent {{ e.email_sent_at.strftime('%Y-%m-%d %H:%M') }}
+            {% else %}
+            Will send on {{ e.due_date.strftime('%Y-%m-%d') if e.due_date else '-' }}
+            {% endif %}
+            {% if e.creator %}&middot; Created by {{ e.creator.name }}{% endif %}
+          </div>
+          {% endif %}
         </td>
         <td>
           {{ e.due_date.strftime('%Y-%m-%d') if e.due_date else '-' }}
@@ -31,6 +46,7 @@
           {% elif e.is_due_today %}<span class="badge bg-warning text-dark">Due today</span>{% endif %}
         </td>
         <td>
+          {% if e.task_type == 'manual' %}
           <form method="post" action="{{ url_for('candidates.assign_event', candidate_id=candidate.id, event_id=e.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <select name="assigned_to" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -40,15 +56,21 @@
               {% endfor %}
             </select>
           </form>
+          {% else %}
+          <span class="text-muted small">&mdash;</span>
+          {% endif %}
         </td>
         <td class="text-end">
+          {% if e.task_type == 'manual' %}
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit-event-{{ e.id }}">Edit</button>
+          {% endif %}
           <form method="post" action="{{ url_for('candidates.delete_event', candidate_id=candidate.id, event_id=e.id) }}" class="d-inline" onsubmit="return confirm('Delete this event?');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
           </form>
         </td>
       </tr>
+      {% if e.task_type == 'manual' %}
       <tr class="collapse" id="edit-event-{{ e.id }}">
         <td colspan="5">
           <form method="post" action="{{ url_for('candidates.edit_event', candidate_id=candidate.id, event_id=e.id) }}" class="row g-2 align-items-end">
@@ -71,6 +93,7 @@
           </form>
         </td>
       </tr>
+      {% endif %}
       {% endfor %}
     </tbody>
   </table>
@@ -79,6 +102,7 @@
   {% endif %}
 
   <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#add-event-{{ timeline_type }}">+ Add event</button>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('candidates.new_email_task', candidate_id=candidate.id, timeline_type=timeline_type) }}">+ Add Infradapt onboarding email task</a>
   <div class="collapse mt-2" id="add-event-{{ timeline_type }}">
     <form method="post" action="{{ url_for('candidates.add_event', candidate_id=candidate.id) }}" class="row g-2">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
