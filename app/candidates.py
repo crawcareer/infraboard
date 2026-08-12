@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta
 
@@ -38,6 +39,16 @@ def _allowed_resume(filename):
     return ext in current_app.config["ALLOWED_RESUME_EXTENSIONS"]
 
 
+_PHONE_CHARS_RE = re.compile(r"^\+?[0-9\s\-.()]+$")
+
+
+def _valid_phone(phone):
+    if not _PHONE_CHARS_RE.match(phone):
+        return False
+    digit_count = len(re.sub(r"\D", "", phone))
+    return 7 <= digit_count <= 15
+
+
 # --- List / detail / create / edit ---------------------------------------
 
 @candidates_bp.route("/")
@@ -67,6 +78,8 @@ def new_candidate():
         error = None
         if not name:
             error = "Name is required."
+        elif phone and not _valid_phone(phone):
+            error = "Phone number must contain 7-15 digits, optionally with +, spaces, dashes, dots, or parentheses."
         elif status not in CANDIDATE_STATUSES:
             error = "Invalid status."
 
@@ -141,6 +154,8 @@ def edit_candidate(candidate_id):
         error = None
         if not name:
             error = "Name is required."
+        elif phone and not _valid_phone(phone):
+            error = "Phone number must contain 7-15 digits, optionally with +, spaces, dashes, dots, or parentheses."
         elif status not in CANDIDATE_STATUSES:
             error = "Invalid status."
 

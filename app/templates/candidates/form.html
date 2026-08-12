@@ -17,7 +17,7 @@
         </div>
         <div class="col-md-6 mb-3">
           <label class="form-label">Phone</label>
-          <input type="text" class="form-control" name="phone" value="{{ (form.phone if form else candidate.phone) or '' }}">
+          <input type="tel" class="form-control" name="phone" pattern="^\+?[0-9\s\-.()]{7,20}$" title="7-15 digits, optionally with +, spaces, dashes, dots, or parentheses" value="{{ (form.phone if form else candidate.phone) or '' }}">
         </div>
       </div>
       <div class="mb-3">
