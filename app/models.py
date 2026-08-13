@@ -174,6 +174,13 @@ class HireEvent(db.Model):
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
+    # Set only for events generated from a TimelineTemplate (copied from
+    # TemplateEvent.day_offset at generation time); None for manually-added
+    # or email-task events. Lets a later-added start date backfill due
+    # dates on just the template-sourced tasks, without needing the
+    # originating template to still exist/match.
+    day_offset = db.Column(db.Integer, nullable=True)
+
     # --- Task type / templated email tasks ---------------------------------
     # Most HireEvents are plain manual checklist items (task_type="manual").
     # A task_type of TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL instead represents

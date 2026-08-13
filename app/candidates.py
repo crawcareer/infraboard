@@ -175,6 +175,7 @@ def edit_candidate(candidate_id):
             return render_template("candidates/form.html", candidate=candidate, form=request.form)
 
         was_hired = candidate.status == "hired"
+        had_start_date = candidate.start_date is not None
         candidate.name = name
         candidate.email = email or None
         candidate.phone = phone or None
@@ -201,6 +202,29 @@ def edit_candidate(candidate_id):
                     "Status changed to hired, but no timeline templates exist "
                     "yet to generate events from.",
                     "warning",
+                )
+        elif not had_start_date and start_date is not None:
+            # A start date was just added for the first time to a candidate
+            # that already has template-generated events (created back when
+            # there was no start date, so their due dates are still blank).
+            # Backfill due dates on just those events, using each one's
+            # stored day_offset — manually-added events (day_offset is None)
+            # are left untouched. This only fires on this first
+            # blank-to-set transition; later start date changes don't
+            # re-trigger it, so manual due-date edits made afterward aren't
+            # overwritten.
+            template_events = HireEvent.query.filter(
+                HireEvent.candidate_id == candidate.id,
+                HireEvent.day_offset.isnot(None),
+            ).all()
+            if template_events:
+                for te in template_events:
+                    te.due_date = start_date + timedelta(days=te.day_offset)
+                db.session.commit()
+                flash(
+                    f"Start date set — recalculated due dates for "
+                    f"{len(template_events)} template-generated task(s).",
+                    "info",
                 )
 
         return redirect(url_for("candidates.detail", candidate_id=candidate.id))
@@ -359,6 +383,7 @@ def _instantiate_timeline(candidate, template_name, timeline_type):
             status="pending",
             timeline_type=timeline_type,
             sort_order=te.sort_order,
+            day_offset=te.day_offset,
         )
         db.session.add(event)
         created += 1
