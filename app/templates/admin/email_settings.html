@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Email Settings{% endblock %}
+{% block content %}
+<h2>Email Settings</h2>
+<p class="text-muted">SMTP server used to send scheduled onboarding emails. These settings take priority over any SMTP_* values in .env once saved here.</p>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <div class="row">
+        <div class="col-md-8 mb-3">
+          <label class="form-label">SMTP host</label>
+          <input type="text" class="form-control" name="smtp_host" value="{{ (form.smtp_host if form else settings.smtp_host) or '' }}" required placeholder="smtp.office365.com">
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Port</label>
+          <input type="number" class="form-control" name="smtp_port" value="{{ (form.smtp_port if form else settings.smtp_port) or 587 }}">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="smtp_username" value="{{ (form.smtp_username if form else settings.smtp_username) or '' }}">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="smtp_password" placeholder="{{ 'Leave blank to keep the current password' if (settings and settings.smtp_password_encrypted) else '' }}">
+        <div class="form-text">
+          {% if settings and settings.smtp_password_encrypted %}
+          A password is currently set. Leave this blank to keep it, or enter a new one to replace it.
+          {% else %}
+          No password is currently set. Some SMTP relays don't require one.
+          {% endif %}
+        </div>
+      </div>
+
+      {% set tls_checked = form.get('smtp_use_tls') == 'on' if form else (settings.smtp_use_tls if settings else True) %}
+      <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="smtp_use_tls" name="smtp_use_tls" {% if tls_checked %}checked{% endif %}>
+        <label class="form-check-label" for="smtp_use_tls">Use TLS (STARTTLS)</label>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">From email</label>
+        <input type="email" class="form-control" name="from_email" value="{{ (form.from_email if form else settings.from_email) or '' }}" required placeholder="onboarding@infradapt.com">
+      </div>
+
+      {% if settings and settings.updated_at %}
+      <p class="text-muted small">
+        Last updated {{ settings.updated_at.strftime('%Y-%m-%d %H:%M') }}
+        {% if settings.updated_by_user %}by {{ settings.updated_by_user.name }}{% endif %}
+      </p>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{{ url_for('admin.index') }}" class="btn btn-link">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

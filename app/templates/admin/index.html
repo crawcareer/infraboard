@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<h2 class="mb-4">Admin</h2>
+
+<div class="row">
+  <div class="col-md-4 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Email Settings</h5>
+        <p class="card-text text-muted">Configure the SMTP server used to send scheduled onboarding emails.</p>
+        <a href="{{ url_for('admin.email_settings') }}" class="btn btn-primary btn-sm">Open</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

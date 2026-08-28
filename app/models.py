@@ -68,6 +68,31 @@ class User(UserMixin, db.Model):
         return f"<User {self.email}>"
 
 
+class EmailSettings(db.Model):
+    """Singleton row holding admin-configured SMTP settings.
+
+    app/emailing.py prefers this row (when smtp_host is set) over the
+    SMTP_*/FROM_EMAIL environment variables, so Admin > Email Settings can
+    fully replace editing .env for email configuration.
+    """
+
+    __tablename__ = "email_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    smtp_host = db.Column(db.String(255), nullable=True)
+    smtp_port = db.Column(db.Integer, nullable=True, default=587)
+    smtp_username = db.Column(db.String(255), nullable=True)
+    smtp_password_encrypted = db.Column(db.Text, nullable=True)
+    smtp_use_tls = db.Column(db.Boolean, nullable=False, default=True)
+    from_email = db.Column(db.String(255), nullable=True)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    updated_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    updated_by_user = db.relationship("User", foreign_keys=[updated_by])
+
+
 class Candidate(db.Model):
     __tablename__ = "candidates"
 

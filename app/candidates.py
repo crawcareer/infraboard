@@ -110,6 +110,12 @@ def new_candidate():
         db.session.commit()
         flash(f"Candidate {name} created.", "success")
 
+        resume_files = request.files.getlist("resume_file")
+        if any(f and f.filename for f in resume_files):
+            saved = _save_resumes(candidate, resume_files)
+            if saved:
+                flash(f"Uploaded {saved} resume file(s).", "success")
+
         if status == "hired":
             _instantiate_timeline(candidate, "Pre-Hire", "pre_hire")
             _instantiate_timeline(candidate, "Post-Hire", "post_hire")
@@ -251,16 +257,14 @@ def delete_candidate(candidate_id):
 
 # --- Resumes ---------------------------------------------------------------
 
-@candidates_bp.route("/<int:candidate_id>/resumes", methods=["POST"])
-@login_required
-def upload_resume(candidate_id):
-    candidate = Candidate.query.get_or_404(candidate_id)
-    files = request.files.getlist("resume_file")
+def _save_resumes(candidate, files):
+    """Save each valid uploaded file as a Resume row for candidate.
 
-    if not files or all(f.filename == "" for f in files):
-        flash("Please choose at least one file to upload.", "danger")
-        return redirect(url_for("candidates.detail", candidate_id=candidate.id))
-
+    Skips empty file slots silently and flashes a warning for any file with
+    a disallowed extension. Returns the number of files actually saved.
+    Callers are responsible for checking whether any files were provided at
+    all (required vs. optional differs by call site).
+    """
     upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(candidate.id))
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -288,6 +292,22 @@ def upload_resume(candidate_id):
 
     if saved:
         db.session.commit()
+
+    return saved
+
+
+@candidates_bp.route("/<int:candidate_id>/resumes", methods=["POST"])
+@login_required
+def upload_resume(candidate_id):
+    candidate = Candidate.query.get_or_404(candidate_id)
+    files = request.files.getlist("resume_file")
+
+    if not files or all(f.filename == "" for f in files):
+        flash("Please choose at least one file to upload.", "danger")
+        return redirect(url_for("candidates.detail", candidate_id=candidate.id))
+
+    saved = _save_resumes(candidate, files)
+    if saved:
         flash(f"Uploaded {saved} resume file(s).", "success")
 
     return redirect(url_for("candidates.detail", candidate_id=candidate.id))

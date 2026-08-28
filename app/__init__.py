@@ -38,11 +38,13 @@ def create_app(config_class=Config):
     from app.candidates import candidates_bp
     from app.templates_admin import templates_admin_bp
     from app.main import main_bp
+    from app.admin import admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(candidates_bp)
     app.register_blueprint(templates_admin_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(admin_bp)
 
     # --- Lightweight CSRF protection ------------------------------------
     # The app intentionally avoids extra heavy dependencies (Flask-WTF)

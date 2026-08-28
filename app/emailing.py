@@ -3,15 +3,20 @@
 render_infradapt_onboarding_email() is pure (no I/O) and safe to call from
 a request handler for the create-task preview step.
 
-send_email() talks to the SMTP server and reads its settings from the
-process environment (SMTP_HOST/PORT/USERNAME/PASSWORD/USE_TLS, FROM_EMAIL)
-rather than Flask's app.config, since it is only ever invoked by the
-standalone send_scheduled_emails.py script, not from within a request.
+send_email() talks to the SMTP server. Settings come from the admin-managed
+EmailSettings row (Admin > Email Settings) when one exists with a host
+configured, falling back to the SMTP_HOST/PORT/USERNAME/PASSWORD/USE_TLS
+and FROM_EMAIL environment variables otherwise — so installs that haven't
+visited the admin page yet keep working off .env unchanged. Both callers
+(send_scheduled_emails.py and any future in-request sender) need an active
+app context for this, same as before.
 """
 
 import os
 import smtplib
 from email.message import EmailMessage
+
+from app.crypto import decrypt_secret
 
 
 def render_infradapt_onboarding_email(candidate, creator):
@@ -33,18 +38,45 @@ def render_infradapt_onboarding_email(candidate, creator):
     return subject, body
 
 
+def _get_smtp_config():
+    """Resolve SMTP settings: admin-configured EmailSettings row first,
+    falling back to environment variables if no row exists (or it has no
+    host set yet)."""
+    from app.models import EmailSettings
+
+    settings = EmailSettings.query.first()
+    if settings and settings.smtp_host:
+        return {
+            "host": settings.smtp_host,
+            "port": settings.smtp_port or 587,
+            "username": settings.smtp_username or None,
+            "password": decrypt_secret(settings.smtp_password_encrypted),
+            "use_tls": settings.smtp_use_tls,
+            "from_email": settings.from_email,
+        }
+
+    return {
+        "host": os.environ.get("SMTP_HOST"),
+        "port": int(os.environ.get("SMTP_PORT", "587")),
+        "username": os.environ.get("SMTP_USERNAME") or None,
+        "password": os.environ.get("SMTP_PASSWORD") or None,
+        "use_tls": os.environ.get("SMTP_USE_TLS", "true").strip().lower() in ("1", "true", "yes"),
+        "from_email": os.environ.get("FROM_EMAIL") or None,
+    }
+
+
 def send_email(to, subject, body, cc=None, reply_to=None):
-    """Send a plain-text email via SMTP using settings from the environment."""
-    host = os.environ["SMTP_HOST"]
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    username = os.environ.get("SMTP_USERNAME")
-    password = os.environ.get("SMTP_PASSWORD")
-    use_tls = os.environ.get("SMTP_USE_TLS", "true").strip().lower() in ("1", "true", "yes")
-    from_email = os.environ["FROM_EMAIL"]
+    """Send a plain-text email via SMTP using the resolved settings."""
+    cfg = _get_smtp_config()
+    if not cfg["host"] or not cfg["from_email"]:
+        raise RuntimeError(
+            "Email is not configured. Set it up in Admin > Email Settings "
+            "(or the SMTP_HOST/FROM_EMAIL environment variables)."
+        )
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = from_email
+    msg["From"] = cfg["from_email"]
     msg["To"] = to
     if cc:
         msg["Cc"] = cc
@@ -54,9 +86,9 @@ def send_email(to, subject, body, cc=None, reply_to=None):
 
     recipients = [to] + ([cc] if cc else [])
 
-    with smtplib.SMTP(host, port) as server:
-        if use_tls:
+    with smtplib.SMTP(cfg["host"], cfg["port"]) as server:
+        if cfg["use_tls"]:
             server.starttls()
-        if username and password:
-            server.login(username, password)
+        if cfg["username"] and cfg["password"]:
+            server.login(cfg["username"], cfg["password"])
         server.send_message(msg, to_addrs=recipients)

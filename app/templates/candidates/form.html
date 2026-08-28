@@ -4,7 +4,7 @@
 <h2>{{ 'Edit candidate' if candidate else 'New candidate' }}</h2>
 <div class="card mt-3">
   <div class="card-body">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="mb-3">
         <label class="form-label">Name</label>
@@ -38,6 +38,13 @@
           <input type="date" class="form-control" name="start_date" value="{{ (form.start_date if form else (candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '')) or '' }}">
         </div>
       </div>
+      {% if not candidate %}
+      <div class="mb-3">
+        <label class="form-label">Resume(s)</label>
+        <input type="file" class="form-control" name="resume_file" accept=".pdf,.doc,.docx" multiple>
+        <div class="form-text">Optional. PDF, DOC, or DOCX. Multiple files allowed.</div>
+      </div>
+      {% endif %}
       <button type="submit" class="btn btn-primary">Save</button>
       <a href="{{ url_for('candidates.list_candidates') }}" class="btn btn-link">Cancel</a>
     </form>
