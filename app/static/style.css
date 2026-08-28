@@ -1,5 +1,5 @@
 body {
-  background-color: #f7f8fa;
+  background-color: var(--app-body-bg, #f7f8fa);
 }
 .navbar-brand {
   font-weight: 600;
@@ -17,6 +17,121 @@ body {
   text-transform: capitalize;
 }
 .timeline-section h5 {
-  border-bottom: 2px solid #dee2e6;
+  border-bottom: 2px solid var(--bs-border-color, #dee2e6);
   padding-bottom: 0.35rem;
+}
+
+/* ==========================================================================
+   Themes
+   --------------------------------------------------------------------------
+   Two independent switches live on <html>, set by the inline script in
+   base.html from localStorage (no server round-trip):
+     data-theme    = "infradapt" (default) | "classic"  -- accent colors
+     data-bs-theme = "light" (default) | "dark"          -- Bootstrap's own
+                                                             light/dark mode
+   "classic" intentionally adds no color overrides at all in light mode
+   (today's plain Bootstrap look, unchanged) and relies on Bootstrap
+   5.3's built-in [data-bs-theme=dark] CSS for its dark variant.
+
+   Bootstrap 5.3 only makes utility classes (.text-primary, .bg-primary,
+   links) dynamically follow the root --bs-primary and --bs-link-*
+   variables; component variants like .btn-primary bake fixed hex into their own
+   local --bs-btn-* custom properties at build time, so those need
+   overriding directly rather than through the root variables alone.
+   ========================================================================== */
+
+/* Any theme's dark mode falls back to Bootstrap's own dark body background
+   unless a theme overrides --app-body-bg more specifically below (as
+   Infradapt Blue does, for its branded navy instead of neutral gray). */
+[data-bs-theme="dark"] {
+  --app-body-bg: var(--bs-body-bg);
+}
+
+/* --- Infradapt Blue: light mode (default) -------------------------------- */
+[data-theme="infradapt"] {
+  --bs-primary: #1a227d;
+  --bs-primary-rgb: 26, 34, 125;
+  --bs-link-color: #1a227d;
+  --bs-link-color-rgb: 26, 34, 125;
+  --bs-link-hover-color: #137efa;
+  --bs-link-hover-color-rgb: 19, 126, 250;
+}
+[data-theme="infradapt"] .navbar {
+  background-color: #1f224b !important;
+}
+[data-theme="infradapt"] .btn-primary {
+  --bs-btn-bg: #1a227d;
+  --bs-btn-border-color: #1a227d;
+  --bs-btn-hover-bg: #137efa;
+  --bs-btn-hover-border-color: #137efa;
+  --bs-btn-active-bg: #00096e;
+  --bs-btn-active-border-color: #00096e;
+  --bs-btn-disabled-bg: #1a227d;
+  --bs-btn-disabled-border-color: #1a227d;
+}
+[data-theme="infradapt"] .btn-outline-primary {
+  --bs-btn-color: #1a227d;
+  --bs-btn-border-color: #1a227d;
+  --bs-btn-hover-bg: #1a227d;
+  --bs-btn-hover-border-color: #1a227d;
+  --bs-btn-active-bg: #00096e;
+  --bs-btn-active-border-color: #00096e;
+  --bs-btn-disabled-color: #1a227d;
+  --bs-btn-disabled-border-color: #1a227d;
+}
+
+/* --- Infradapt Blue: dark mode -------------------------------------------- */
+[data-theme="infradapt"][data-bs-theme="dark"] {
+  --app-body-bg: #12152f;
+  --bs-primary: #137efa;
+  --bs-primary-rgb: 19, 126, 250;
+  --bs-link-color: #6ec1e4;
+  --bs-link-color-rgb: 110, 193, 228;
+  --bs-link-hover-color: #9ed5ef;
+  --bs-link-hover-color-rgb: 158, 213, 239;
+}
+[data-theme="infradapt"][data-bs-theme="dark"] .navbar {
+  background-color: #14173a !important;
+}
+[data-theme="infradapt"][data-bs-theme="dark"] .btn-primary {
+  --bs-btn-color: #0f1226;
+  --bs-btn-bg: #137efa;
+  --bs-btn-border-color: #137efa;
+  --bs-btn-hover-color: #0f1226;
+  --bs-btn-hover-bg: #6ec1e4;
+  --bs-btn-hover-border-color: #6ec1e4;
+  --bs-btn-active-bg: #9ed5ef;
+  --bs-btn-active-border-color: #9ed5ef;
+  --bs-btn-disabled-bg: #137efa;
+  --bs-btn-disabled-border-color: #137efa;
+}
+[data-theme="infradapt"][data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: #6ec1e4;
+  --bs-btn-border-color: #6ec1e4;
+  --bs-btn-hover-color: #0f1226;
+  --bs-btn-hover-bg: #6ec1e4;
+  --bs-btn-hover-border-color: #6ec1e4;
+  --bs-btn-active-bg: #9ed5ef;
+  --bs-btn-active-border-color: #9ed5ef;
+  --bs-btn-disabled-color: #6ec1e4;
+  --bs-btn-disabled-border-color: #6ec1e4;
+}
+
+/* --- Dark mode: mode-only fixes that apply regardless of theme ----------- */
+/* These are semantic status colors (overdue/due-today), not brand colors,
+   so they stay the same red/yellow hue in both themes -- just softened so
+   they read correctly against a dark background instead of the solid
+   light-mode pastel fills. */
+[data-bs-theme="dark"] .table-overdue {
+  background-color: rgba(220, 53, 69, 0.25) !important;
+  color: var(--bs-body-color);
+}
+[data-bs-theme="dark"] .table-due-today {
+  background-color: rgba(255, 193, 7, 0.2) !important;
+  color: var(--bs-body-color);
+}
+
+/* --- Theme/mode picker in the navbar --------------------------------------- */
+.theme-picker select {
+  width: auto;
 }
