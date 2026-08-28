@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user
 
@@ -9,7 +11,8 @@ from app.emailing import (
     render_onboarding_email_template,
 )
 from app.extensions import db
-from app.models import EmailSettings, EmailTemplate, INFRADAPT_SUPPORT_EMAIL
+from app.ldap_sync import run_sync, test_connection
+from app.models import EmailSettings, EmailTemplate, INFRADAPT_SUPPORT_EMAIL, LdapSettings
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -144,3 +147,121 @@ def email_template():
         updated=template,
         infradapt_support_email=INFRADAPT_SUPPORT_EMAIL,
     )
+
+
+@admin_bp.route("/ldap", methods=["GET", "POST"])
+@login_required
+@admin_required
+def ldap_settings():
+    settings = LdapSettings.query.first()
+
+    if request.method == "POST":
+        if request.form.get("action") == "test":
+            candidate = _build_candidate_settings(settings)
+            ok, message = test_connection(candidate)
+            flash(message, "success" if ok else "danger")
+            return render_template("admin/ldap_settings.html", settings=settings, form=request.form)
+
+        if request.form.get("action") == "sync":
+            if settings is None or not settings.host:
+                flash("Configure and save LDAP settings before syncing.", "danger")
+                return redirect(url_for("admin.ldap_settings"))
+            try:
+                result = run_sync(settings)
+            except Exception as exc:
+                settings.last_sync_at = datetime.utcnow()
+                settings.last_sync_status = "error"
+                settings.last_sync_message = str(exc)
+                db.session.commit()
+                flash(f"Sync failed: {exc}", "danger")
+                return redirect(url_for("admin.ldap_settings"))
+
+            settings.last_sync_at = datetime.utcnow()
+            settings.last_sync_status = "ok"
+            settings.last_sync_message = "; ".join(result.errors) if result.errors else None
+            settings.last_sync_created = result.created
+            settings.last_sync_updated = result.updated
+            settings.last_sync_deactivated = result.deactivated
+            db.session.commit()
+            flash(
+                f"Sync complete: {result.created} created, {result.updated} updated, "
+                f"{result.deactivated} deactivated, {len(result.errors)} error(s).",
+                "success" if not result.errors else "warning",
+            )
+            return redirect(url_for("admin.ldap_settings"))
+
+        # action == "save" (default form submit)
+        host = request.form.get("host", "").strip()
+        search_base = request.form.get("search_base", "").strip()
+
+        error = None
+        if not host:
+            error = "LDAP host is required."
+        elif not search_base:
+            error = "Search base is required."
+
+        port_raw = request.form.get("port", "").strip()
+        port = 636
+        if port_raw:
+            try:
+                port = int(port_raw)
+            except ValueError:
+                error = "Port must be a number."
+
+        interval_raw = request.form.get("sync_interval_minutes", "60").strip()
+        try:
+            sync_interval_minutes = max(5, int(interval_raw))
+        except ValueError:
+            error = "Sync interval must be a number."
+            sync_interval_minutes = 60
+
+        if error:
+            flash(error, "danger")
+            return render_template("admin/ldap_settings.html", settings=settings, form=request.form)
+
+        if settings is None:
+            settings = LdapSettings()
+            db.session.add(settings)
+
+        settings.host = host
+        settings.port = port
+        settings.use_ssl = request.form.get("use_ssl") == "on"
+        settings.bind_dn = request.form.get("bind_dn", "").strip() or None
+        bind_password = request.form.get("bind_password", "")
+        if bind_password:
+            settings.bind_password_encrypted = encrypt_secret(bind_password)
+        settings.search_base = search_base
+        settings.user_filter = (
+            request.form.get("user_filter", "").strip()
+            or "(&(objectCategory=person)(objectClass=user))"
+        )
+        settings.sync_interval_minutes = sync_interval_minutes
+        settings.updated_by = current_user.id
+        db.session.commit()
+
+        flash("Active Directory settings saved.", "success")
+        return redirect(url_for("admin.ldap_settings"))
+
+    return render_template("admin/ldap_settings.html", settings=settings, form=None)
+
+
+def _build_candidate_settings(settings):
+    """Build a transient (unsaved) LdapSettings object from the
+    just-submitted form, for the Test connection button. Unset fields
+    fall back to the saved settings row's values, if there is one (e.g.
+    testing without re-entering an already-saved bind password)."""
+    candidate = LdapSettings()
+    candidate.host = request.form.get("host", "").strip() or (settings.host if settings else None)
+    port_raw = request.form.get("port", "").strip()
+    candidate.port = int(port_raw) if port_raw.isdigit() else (settings.port if settings else 636)
+    candidate.use_ssl = request.form.get("use_ssl") == "on"
+    candidate.bind_dn = request.form.get("bind_dn", "").strip() or (settings.bind_dn if settings else None)
+    bind_password = request.form.get("bind_password", "")
+    candidate.bind_password_encrypted = (
+        encrypt_secret(bind_password) if bind_password else (settings.bind_password_encrypted if settings else None)
+    )
+    candidate.search_base = request.form.get("search_base", "").strip() or (settings.search_base if settings else None)
+    candidate.user_filter = request.form.get("user_filter", "").strip() or (
+        settings.user_filter if settings else "(&(objectCategory=person)(objectClass=user))"
+    )
+    return candidate

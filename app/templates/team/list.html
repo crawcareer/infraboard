@@ -21,8 +21,15 @@
     <tr>
       <td>{{ user.name }}</td>
       <td>{{ user.email }}</td>
-      <td><span class="badge bg-{{ 'primary' if user.role == 'admin' else 'secondary' }} badge-status">{{ user.role }}</span></td>
-      <td>{% if user.active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+      <td>
+        <span class="badge bg-{{ 'primary' if user.role == 'admin' else 'secondary' }} badge-status">{{ user.role }}</span>
+        {% if user.role_locked %}<span title="Manually set -- AD sync won't change this">&#128274;</span>{% endif %}
+      </td>
+      <td>
+        {% if user.active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+        {% if user.active_locked %}<span title="Manually set -- AD sync won't change this">&#128274;</span>{% endif %}
+        {% if user.is_ldap_synced %}<span class="badge bg-info text-dark" title="Created/managed by Active Directory sync">AD</span>{% endif %}
+      </td>
       <td class="text-end">
         <a href="{{ url_for('auth.team_edit', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
         <form action="{{ url_for('auth.team_reset_password', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Reset password for {{ user.name }}?');">

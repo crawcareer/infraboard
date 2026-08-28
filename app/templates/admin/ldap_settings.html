@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Active Directory Integration{% endblock %}
+{% block content %}
+<h2>Active Directory Integration</h2>
+<p class="text-muted">
+  Connect an LDAP/Active Directory server to sync Employee accounts automatically.
+  Synced accounts log in with their AD password directly &mdash; nothing is stored
+  locally for them. Any field you edit by hand under Team stops that field from
+  being changed by future syncs for that person.
+</p>
+
+<div class="row">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+          <div class="row">
+            <div class="col-md-8 mb-3">
+              <label class="form-label">LDAP host</label>
+              <input type="text" class="form-control" name="host" value="{{ (form.host if form else settings.host) or '' }}" required placeholder="dc01.corp.infradapt.com">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Port</label>
+              <input type="number" class="form-control" name="port" value="{{ (form.port if form else settings.port) or 636 }}">
+            </div>
+          </div>
+
+          {% set ssl_checked = form.get('use_ssl') == 'on' if form else (settings.use_ssl if settings else True) %}
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="use_ssl" name="use_ssl" {% if ssl_checked %}checked{% endif %}>
+            <label class="form-check-label" for="use_ssl">Use SSL (LDAPS)</label>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Bind DN (service account)</label>
+            <input type="text" class="form-control" name="bind_dn" value="{{ (form.bind_dn if form else settings.bind_dn) or '' }}" placeholder="CN=svc-onboarding,OU=Service Accounts,DC=corp,DC=infradapt,DC=com">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Bind password</label>
+            <input type="password" class="form-control" name="bind_password" placeholder="{{ 'Leave blank to keep the current password' if (settings and settings.bind_password_encrypted) else '' }}">
+            <div class="form-text">
+              {% if settings and settings.bind_password_encrypted %}
+              A password is currently set. Leave this blank to keep it, or enter a new one to replace it.
+              {% else %}
+              No password is currently set.
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Search base</label>
+            <input type="text" class="form-control" name="search_base" value="{{ (form.search_base if form else settings.search_base) or '' }}" required placeholder="OU=Employees,DC=corp,DC=infradapt,DC=com">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">User filter</label>
+            <input type="text" class="form-control" name="user_filter" value="{{ (form.user_filter if form else settings.user_filter) or '(&(objectCategory=person)(objectClass=user))' }}">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Sync interval</label>
+            <select class="form-select" name="sync_interval_minutes">
+              {% set current_interval = (form.sync_interval_minutes if form else settings.sync_interval_minutes) | default(60, true) | int %}
+              {% for minutes, label in [(15, 'Every 15 minutes'), (30, 'Every 30 minutes'), (60, 'Every hour'), (360, 'Every 6 hours'), (1440, 'Once a day')] %}
+              <option value="{{ minutes }}" {% if current_interval == minutes %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" name="action" value="save" class="btn btn-primary">Save</button>
+          <button type="submit" name="action" value="test" class="btn btn-outline-secondary">Test connection</button>
+          <a href="{{ url_for('admin.index') }}" class="btn btn-link">Cancel</a>
+        </form>
+      </div>
+    </div>
+
+    {% if settings and settings.host %}
+    <form method="post" onsubmit="return confirm('Sync now? This connects to AD immediately instead of waiting for the next scheduled run.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="sync">
+      <button type="submit" class="btn btn-success btn-sm">Sync now</button>
+    </form>
+    {% endif %}
+
+    {% if settings and settings.updated_at %}
+    <p class="text-muted small mt-3">
+      Settings last updated {{ settings.updated_at.strftime('%Y-%m-%d %H:%M') }}
+      {% if settings.updated_by_user %}by {{ settings.updated_by_user.name }}{% endif %}
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Last sync</div>
+      <div class="card-body">
+        {% if settings and settings.last_sync_at %}
+        <p class="mb-1">
+          <strong>{{ settings.last_sync_at.strftime('%Y-%m-%d %H:%M') }}</strong>
+          <span class="badge bg-{{ 'success' if settings.last_sync_status == 'ok' else 'danger' }}">{{ settings.last_sync_status }}</span>
+        </p>
+        {% if settings.last_sync_status == 'ok' %}
+        <p class="mb-1 small">
+          {{ settings.last_sync_created or 0 }} created &middot;
+          {{ settings.last_sync_updated or 0 }} updated &middot;
+          {{ settings.last_sync_deactivated or 0 }} deactivated
+        </p>
+        {% endif %}
+        {% if settings.last_sync_message %}
+        <p class="mb-0 small text-muted" style="white-space: pre-wrap;">{{ settings.last_sync_message }}</p>
+        {% endif %}
+        {% else %}
+        <p class="text-muted mb-0">No sync has run yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

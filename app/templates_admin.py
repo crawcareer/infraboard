@@ -3,7 +3,6 @@ from flask_login import login_required
 
 from app.extensions import db
 from app.models import TimelineTemplate, TemplateEvent, ROLES
-from app.auth import admin_required
 
 templates_admin_bp = Blueprint(
     "templates_admin", __name__, url_prefix="/timeline-templates"
@@ -12,7 +11,6 @@ templates_admin_bp = Blueprint(
 
 @templates_admin_bp.route("/")
 @login_required
-@admin_required
 def list_templates():
     templates = TimelineTemplate.query.order_by(TimelineTemplate.name).all()
     return render_template("templates_admin/list.html", templates=templates)
@@ -20,7 +18,6 @@ def list_templates():
 
 @templates_admin_bp.route("/new", methods=["GET", "POST"])
 @login_required
-@admin_required
 def new_template():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -45,7 +42,6 @@ def new_template():
 
 @templates_admin_bp.route("/<int:template_id>")
 @login_required
-@admin_required
 def detail(template_id):
     template = TimelineTemplate.query.get_or_404(template_id)
     events = template.events.order_by(TemplateEvent.sort_order).all()
@@ -54,7 +50,6 @@ def detail(template_id):
 
 @templates_admin_bp.route("/<int:template_id>/edit", methods=["GET", "POST"])
 @login_required
-@admin_required
 def edit_template(template_id):
     template = TimelineTemplate.query.get_or_404(template_id)
 
@@ -82,7 +77,6 @@ def edit_template(template_id):
 
 @templates_admin_bp.route("/<int:template_id>/delete", methods=["POST"])
 @login_required
-@admin_required
 def delete_template(template_id):
     template = TimelineTemplate.query.get_or_404(template_id)
     db.session.delete(template)
@@ -95,7 +89,6 @@ def delete_template(template_id):
 
 @templates_admin_bp.route("/<int:template_id>/events/new", methods=["POST"])
 @login_required
-@admin_required
 def add_event(template_id):
     template = TimelineTemplate.query.get_or_404(template_id)
 
@@ -143,7 +136,6 @@ def add_event(template_id):
     "/<int:template_id>/events/<int:event_id>/edit", methods=["POST"]
 )
 @login_required
-@admin_required
 def edit_event(template_id, event_id):
     event = TemplateEvent.query.get_or_404(event_id)
     if event.template_id != template_id:
@@ -183,7 +175,6 @@ def edit_event(template_id, event_id):
     "/<int:template_id>/events/<int:event_id>/delete", methods=["POST"]
 )
 @login_required
-@admin_required
 def delete_event(template_id, event_id):
     event = TemplateEvent.query.get_or_404(event_id)
     if event.template_id != template_id:
@@ -219,7 +210,6 @@ def _swap_order(template_id, event_id, direction):
     "/<int:template_id>/events/<int:event_id>/move-up", methods=["POST"]
 )
 @login_required
-@admin_required
 def move_event_up(template_id, event_id):
     _swap_order(template_id, event_id, "up")
     return redirect(url_for("templates_admin.detail", template_id=template_id))
@@ -229,7 +219,6 @@ def move_event_up(template_id, event_id):
     "/<int:template_id>/events/<int:event_id>/move-down", methods=["POST"]
 )
 @login_required
-@admin_required
 def move_event_down(template_id, event_id):
     _swap_order(template_id, event_id, "down")
     return redirect(url_for("templates_admin.detail", template_id=template_id))

@@ -12,7 +12,7 @@ from flask import (
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app.extensions import db
-from app.models import User, ROLES, ROLE_ADMIN
+from app.models import User, ROLES, ROLE_ADMIN, ROLE_EMPLOYEE
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -45,7 +45,24 @@ def login():
         password = request.form.get("password", "")
         user = User.query.filter_by(email=email).first()
 
-        if user and user.active and user.check_password(password):
+        authenticated = False
+        if user and user.active:
+            if user.is_ldap_synced:
+                # Synced accounts have no usable local password (see
+                # User.password_hash / app/ldap_sync.py) -- Active
+                # Directory is the live authority on every login. Any
+                # LDAP error (unreachable, bad creds, misconfigured
+                # settings) falls through to authenticated=False, i.e.
+                # fails closed rather than granting access.
+                from app.ldap_sync import check_login_bind
+                from app.models import LdapSettings
+
+                ldap_settings = LdapSettings.query.first()
+                authenticated = check_login_bind(ldap_settings, user.ldap_dn, password)
+            else:
+                authenticated = user.check_password(password)
+
+        if authenticated:
             login_user(user)
             flash(f"Welcome back, {user.name}.", "success")
             next_url = request.args.get("next")
@@ -83,7 +100,7 @@ def team_new():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
-        role = request.form.get("role", "member")
+        role = request.form.get("role", ROLE_EMPLOYEE)
         password = request.form.get("password", "")
 
         error = None
@@ -100,7 +117,20 @@ def team_new():
             flash(error, "danger")
             return render_template("team/form.html", user=None, form=request.form)
 
-        user = User(name=name, email=email, role=role, active=True)
+        # Every field here was explicitly chosen by an admin, not defaulted
+        # or synced -- lock them all from the start so a later LDAP sync
+        # that happens to match this account's email won't silently
+        # change anything about it.
+        user = User(
+            name=name,
+            email=email,
+            role=role,
+            active=True,
+            name_locked=True,
+            email_locked=True,
+            role_locked=True,
+            active_locked=True,
+        )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -119,7 +149,7 @@ def team_edit(user_id):
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
-        role = request.form.get("role", "member")
+        role = request.form.get("role", ROLE_EMPLOYEE)
         active = request.form.get("active") == "on"
         new_password = request.form.get("password", "").strip()
 
@@ -144,6 +174,19 @@ def team_edit(user_id):
         if error:
             flash(error, "danger")
             return render_template("team/form.html", user=user, form=request.form)
+
+        # An LDAP sync will skip any field marked locked here -- lock
+        # exactly the fields actually being changed by this edit, not the
+        # whole account, so sync can keep managing whatever wasn't
+        # touched by hand.
+        if name != user.name:
+            user.name_locked = True
+        if email != user.email:
+            user.email_locked = True
+        if role != user.role:
+            user.role_locked = True
+        if active != user.active:
+            user.active_locked = True
 
         user.name = name
         user.email = email

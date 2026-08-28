@@ -27,6 +27,12 @@
         <input type="checkbox" class="form-check-input" id="active" name="active" {% if user.active %}checked{% endif %}>
         <label class="form-check-label" for="active">Active</label>
       </div>
+      {% if user.is_ldap_synced %}
+      <p class="text-muted small">
+        This account is managed by Active Directory sync &mdash; it logs in with
+        its AD password directly, so a locally-set password below is never used.
+      </p>
+      {% endif %}
       <div class="mb-3">
         <label class="form-label">New password (leave blank to keep current)</label>
         <input type="password" class="form-control" name="password" minlength="8">

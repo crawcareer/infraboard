@@ -6,8 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 
 ROLE_ADMIN = "admin"
-ROLE_MEMBER = "member"
-ROLES = (ROLE_ADMIN, ROLE_MEMBER)
+ROLE_EMPLOYEE = "employee"
+ROLES = (ROLE_ADMIN, ROLE_EMPLOYEE)
 
 CANDIDATE_STATUSES = (
     "prospect",
@@ -35,9 +35,24 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default=ROLE_MEMBER)
+    role = db.Column(db.String(20), nullable=False, default=ROLE_EMPLOYEE)
     active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # --- Active Directory / LDAP sync ---------------------------------------
+    # ldap_dn is both the sync-matching key and the identity used to bind
+    # against LDAP at login time (see app/ldap_sync.py). is_ldap_synced
+    # controls whether login checks a local password at all vs. always
+    # deferring to a live LDAP bind. The *_locked flags mark fields an
+    # admin has manually edited via Team -> Edit; sync skips any field
+    # that's locked for a given user rather than overwriting it.
+    ldap_dn = db.Column(db.String(500), nullable=True)
+    ldap_username = db.Column(db.String(255), nullable=True)
+    is_ldap_synced = db.Column(db.Boolean, nullable=False, default=False)
+    name_locked = db.Column(db.Boolean, nullable=False, default=False)
+    email_locked = db.Column(db.Boolean, nullable=False, default=False)
+    role_locked = db.Column(db.Boolean, nullable=False, default=False)
+    active_locked = db.Column(db.Boolean, nullable=False, default=False)
 
     notes = db.relationship("Note", backref="author", lazy="dynamic")
     resumes_uploaded = db.relationship("Resume", backref="uploaded_by_user", lazy="dynamic")
@@ -108,6 +123,44 @@ class EmailTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subject_template = db.Column(db.String(255), nullable=True)
     body_template = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    updated_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    updated_by_user = db.relationship("User", foreign_keys=[updated_by])
+
+
+class LdapSettings(db.Model):
+    """Singleton row holding the Active Directory / LDAP connection config
+    (Admin > Active Directory Integration) and the last sync's outcome.
+
+    Attribute mapping (sAMAccountName/mail/displayName/userAccountControl)
+    is fixed to standard AD conventions in app/ldap_sync.py rather than
+    configurable here, to keep this form manageable.
+    """
+
+    __tablename__ = "ldap_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    host = db.Column(db.String(255), nullable=True)
+    port = db.Column(db.Integer, nullable=True, default=636)
+    use_ssl = db.Column(db.Boolean, nullable=False, default=True)
+    bind_dn = db.Column(db.String(500), nullable=True)
+    bind_password_encrypted = db.Column(db.Text, nullable=True)
+    search_base = db.Column(db.String(500), nullable=True)
+    user_filter = db.Column(
+        db.String(500), nullable=True, default="(&(objectCategory=person)(objectClass=user))"
+    )
+    sync_interval_minutes = db.Column(db.Integer, nullable=False, default=60)
+
+    last_sync_at = db.Column(db.DateTime, nullable=True)
+    last_sync_status = db.Column(db.String(20), nullable=True)
+    last_sync_message = db.Column(db.Text, nullable=True)
+    last_sync_created = db.Column(db.Integer, nullable=True)
+    last_sync_updated = db.Column(db.Integer, nullable=True)
+    last_sync_deactivated = db.Column(db.Integer, nullable=True)
+
     updated_at = db.Column(
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

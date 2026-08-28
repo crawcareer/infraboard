@@ -1,0 +1,13 @@
+[Unit]
+Description=Infradapt Onboarding Tracker - Active Directory / LDAP employee sync
+After=network.target
+
+[Service]
+Type=oneshot
+User=onboarding
+Group=onboarding
+WorkingDirectory=/opt/onboarding-app
+EnvironmentFile=/opt/onboarding-app/.env
+ExecStart=/opt/onboarding-app/venv/bin/python sync_ldap_employees.py
+StandardOutput=append:/var/log/onboarding-app/ldap-sync.log
+StandardError=append:/var/log/onboarding-app/ldap-sync.error.log
