@@ -81,6 +81,21 @@ def create_app(config_class=Config):
             return ""
         return value.strftime(fmt)
 
+    @app.template_global("static_version")
+    def _static_version(filename):
+        # nginx serves /static/ directly (bypassing Flask) with a 30-day
+        # cache lifetime (deploy/nginx-onboarding.conf), and the URL is
+        # otherwise identical on every deploy -- so browsers that already
+        # cached an old copy would keep using it for the rest of that
+        # window even after the file changes on disk. Appending the file's
+        # own mtime as a query string changes the URL whenever the file
+        # changes, which busts both browser and nginx caches for it.
+        try:
+            path = os.path.join(app.static_folder, filename)
+            return int(os.path.getmtime(path))
+        except OSError:
+            return 0
+
     @app.errorhandler(403)
     def _forbidden(e):
         return render_template("errors/error.html", code=403, message="Forbidden"), 403
