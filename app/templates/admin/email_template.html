@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Email Template{% endblock %}
+{% block content %}
+<h2>Infradapt Onboarding Email Template</h2>
+<p class="text-muted">
+  Used when creating a "Send Infradapt onboarding request" task. Editing this
+  only affects tasks created after you save &mdash; tasks that already exist
+  keep whatever subject/body was generated when they were created.
+</p>
+
+<div class="row">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="mb-3">
+            <label class="form-label">Subject</label>
+            <input type="text" class="form-control" name="subject_template" value="{{ subject_template }}" required maxlength="255">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Body</label>
+            <textarea class="form-control" name="body_template" rows="10" required>{{ body_template }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Save</button>
+          <a href="{{ url_for('admin.index') }}" class="btn btn-link">Cancel</a>
+        </form>
+      </div>
+    </div>
+
+    <form method="post" onsubmit="return confirm('Reset the email template to the default? This discards your customizations.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="reset">
+      <button type="submit" class="btn btn-outline-danger btn-sm" {% if not updated %}disabled title="Already using the default"{% endif %}>
+        Reset to default
+      </button>
+    </form>
+
+    {% if updated and updated.updated_at %}
+    <p class="text-muted small mt-3">
+      Last updated {{ updated.updated_at.strftime('%Y-%m-%d %H:%M') }}
+      {% if updated.updated_by_user %}by {{ updated.updated_by_user.name }}{% endif %}
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Available placeholders</div>
+      <div class="card-body">
+        <ul class="mb-0 small">
+          <li><code>$candidate_name</code> &mdash; the candidate's name</li>
+          <li><code>$start_date</code> &mdash; their start date, or "TBD" if not set</li>
+          <li><code>$creator_name</code> &mdash; name of whoever creates the task</li>
+          <li><code>$creator_email</code> &mdash; their email, as point of contact</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Preview (sample data)</div>
+      <div class="card-body">
+        <p class="mb-1"><strong>To:</strong> {{ infradapt_support_email }}</p>
+        <p class="mb-1"><strong>Subject:</strong> {{ preview[0] }}</p>
+        <hr>
+        <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ preview[1] }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

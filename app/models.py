@@ -93,6 +93,29 @@ class EmailSettings(db.Model):
     updated_by_user = db.relationship("User", foreign_keys=[updated_by])
 
 
+class EmailTemplate(db.Model):
+    """Singleton row holding the admin-editable Infradapt onboarding
+    request email template (Admin > Email Template).
+
+    app/emailing.py falls back to its own built-in default subject/body
+    when no row exists yet or a field is empty. Editing this only affects
+    tasks created after the save -- HireEvent.email_subject/email_body are
+    frozen at task-creation time and don't change retroactively.
+    """
+
+    __tablename__ = "email_templates"
+
+    id = db.Column(db.Integer, primary_key=True)
+    subject_template = db.Column(db.String(255), nullable=True)
+    body_template = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    updated_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    updated_by_user = db.relationship("User", foreign_keys=[updated_by])
+
+
 class Candidate(db.Model):
     __tablename__ = "candidates"
 
