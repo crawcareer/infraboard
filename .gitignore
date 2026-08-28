@@ -1,2 +1,9 @@
 # DB
 instance/*
+
+# Python bytecode -- regenerated automatically on every run, shouldn't be
+# tracked. Having these tracked caused deploys to silently fail: running
+# the app modifies them, leaving local changes that block `git pull` from
+# fetching newer commits without any obvious error.
+__pycache__/
+*.pyc
