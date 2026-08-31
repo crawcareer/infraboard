@@ -16,6 +16,51 @@ def list_templates():
     return render_template("templates_admin/list.html", templates=templates)
 
 
+@templates_admin_bp.route("/generate-defaults", methods=["POST"])
+@login_required
+def generate_defaults():
+    from app.default_templates import DEFAULT_TEMPLATES
+
+    created, skipped = [], []
+
+    for template_def in DEFAULT_TEMPLATES:
+        if TimelineTemplate.query.filter_by(name=template_def["name"]).first():
+            skipped.append(template_def["name"])
+            continue
+
+        template = TimelineTemplate(
+            name=template_def["name"], description=template_def.get("description")
+        )
+        db.session.add(template)
+        db.session.flush()  # assigns template.id for the events below
+
+        for sort_order, event_def in enumerate(template_def["events"]):
+            db.session.add(
+                TemplateEvent(
+                    template_id=template.id,
+                    title=event_def["title"],
+                    description=event_def.get("description"),
+                    day_offset=event_def["day_offset"],
+                    default_assignee_role=event_def.get("default_assignee_role"),
+                    sort_order=sort_order,
+                )
+            )
+        created.append(template_def["name"])
+
+    db.session.commit()
+
+    if created:
+        flash(f"Generated default template(s): {', '.join(created)}.", "success")
+    if skipped:
+        flash(
+            f"Already existed, left unchanged: {', '.join(skipped)}. "
+            "Delete one first if you want to regenerate it from scratch.",
+            "info",
+        )
+
+    return redirect(url_for("templates_admin.list_templates"))
+
+
 @templates_admin_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_template():
