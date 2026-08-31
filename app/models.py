@@ -169,6 +169,46 @@ class LdapSettings(db.Model):
     updated_by_user = db.relationship("User", foreign_keys=[updated_by])
 
 
+class TaskReminderSettings(db.Model):
+    """Singleton row holding the daily task-reminder email config
+    (Admin > Task Reminders): whether it's on, what time it fires, the
+    site's public URL (for the link in the email -- send_task_reminders.py
+    runs outside any request, so there's no request context to build an
+    absolute URL from otherwise), and the editable subject/body template.
+
+    send_time is stored as plain "HH:MM" text rather than a Time column --
+    simpler to round-trip through an <input type="time"> form field, and
+    the only thing ever done with it is a string/tuple comparison against
+    the current server-local time in send_task_reminders.py.
+
+    last_sent_date guards against sending twice in one day: the systemd
+    timer runs every few minutes as a heartbeat (same pattern as LDAP
+    sync's interval self-gating), and the script only actually sends once
+    per calendar date, at or after send_time.
+    """
+
+    __tablename__ = "task_reminder_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    enabled = db.Column(db.Boolean, nullable=False, default=False)
+    website_url = db.Column(db.String(500), nullable=True)
+    send_time = db.Column(db.String(5), nullable=True, default="08:00")
+    subject_template = db.Column(db.String(255), nullable=True)
+    body_template = db.Column(db.Text, nullable=True)
+
+    last_sent_date = db.Column(db.Date, nullable=True)
+    last_sent_status = db.Column(db.String(20), nullable=True)
+    last_sent_message = db.Column(db.Text, nullable=True)
+    last_sent_recipient_count = db.Column(db.Integer, nullable=True)
+
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    updated_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    updated_by_user = db.relationship("User", foreign_keys=[updated_by])
+
+
 class Candidate(db.Model):
     __tablename__ = "candidates"
 

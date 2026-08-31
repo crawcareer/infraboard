@@ -39,21 +39,67 @@ DEFAULT_ONBOARDING_EMAIL_BODY = (
 )
 
 
+def apply_email_template(subject_template, body_template, **context):
+    """Substitute the given placeholders into subject/body templates via
+    string.Template.safe_substitute(). Pure, no I/O -- the shared low-level
+    helper behind every admin-editable email template in this app."""
+    subject = Template(subject_template).safe_substitute(**context)
+    body = Template(body_template).safe_substitute(**context)
+    return subject, body
+
+
 def render_onboarding_email_template(
     subject_template, body_template, candidate_name, start_date, creator_name, creator_email
 ):
     """Substitute $candidate_name/$start_date/$creator_name/$creator_email
     into the given subject/body templates. Pure, no I/O -- used both for
     the real render and for the Admin > Email Template preview."""
-    context = {
-        "candidate_name": candidate_name,
-        "start_date": start_date,
-        "creator_name": creator_name,
-        "creator_email": creator_email,
-    }
-    subject = Template(subject_template).safe_substitute(**context)
-    body = Template(body_template).safe_substitute(**context)
-    return subject, body
+    return apply_email_template(
+        subject_template,
+        body_template,
+        candidate_name=candidate_name,
+        start_date=start_date,
+        creator_name=creator_name,
+        creator_email=creator_email,
+    )
+
+
+# Defaults for the daily task-reminder email (Admin > Task Reminders).
+DEFAULT_TASK_REMINDER_SUBJECT = "You have $task_count pending onboarding task(s)"
+DEFAULT_TASK_REMINDER_BODY = (
+    "Hi $employee_name,\n\n"
+    "You have $task_count pending onboarding task(s) assigned to you:\n\n"
+    "$task_list\n"
+    "View and update these here: $website_url\n"
+)
+
+
+def render_task_reminder_email_template(subject_template, body_template, employee_name, task_count, task_list, website_url):
+    """Substitute $employee_name/$task_count/$task_list/$website_url into
+    the given subject/body templates. Pure, no I/O -- used both for the
+    real render and for the Admin > Task Reminders preview. task_list is a
+    pre-formatted multi-line block (string.Template has no loop syntax, so
+    the list is built into a single placeholder value rather than the
+    template iterating over tasks itself)."""
+    return apply_email_template(
+        subject_template,
+        body_template,
+        employee_name=employee_name,
+        task_count=task_count,
+        task_list=task_list,
+        website_url=website_url,
+    )
+
+
+def format_task_list(tasks):
+    """Render a list of HireEvent-like objects (title, candidate, due_date)
+    into the plain-text block used as the $task_list placeholder value."""
+    lines = []
+    for task in tasks:
+        due = task.due_date.strftime("%Y-%m-%d") if task.due_date else "no due date"
+        candidate_name = task.candidate.name if task.candidate else "(unknown candidate)"
+        lines.append(f"- {task.title} ({candidate_name}) -- due {due}")
+    return "\n".join(lines)
 
 
 def render_infradapt_onboarding_email(candidate, creator):

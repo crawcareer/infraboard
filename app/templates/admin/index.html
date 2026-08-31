@@ -3,33 +3,40 @@
 {% block content %}
 <h2 class="mb-4">Admin</h2>
 
+{% set admin_pages = [
+  {
+    'title': 'Active Directory Integration',
+    'description': 'Connect an LDAP/AD server to sync Employee accounts automatically.',
+    'url': url_for('admin.ldap_settings'),
+  },
+  {
+    'title': 'Email Settings',
+    'description': 'Configure the SMTP server used to send scheduled onboarding emails.',
+    'url': url_for('admin.email_settings'),
+  },
+  {
+    'title': 'Email Template',
+    'description': 'Edit the wording of the Infradapt onboarding request email.',
+    'url': url_for('admin.email_template'),
+  },
+  {
+    'title': 'Task Reminders',
+    'description': 'Send a daily email listing pending tasks to whoever they\'re assigned to.',
+    'url': url_for('admin.task_reminders'),
+  },
+] %}
+
 <div class="row">
+  {% for page in admin_pages | sort(attribute='title') %}
   <div class="col-md-4 mb-3">
     <div class="card h-100">
       <div class="card-body">
-        <h5 class="card-title">Email Settings</h5>
-        <p class="card-text text-muted">Configure the SMTP server used to send scheduled onboarding emails.</p>
-        <a href="{{ url_for('admin.email_settings') }}" class="btn btn-primary btn-sm">Open</a>
+        <h5 class="card-title">{{ page.title }}</h5>
+        <p class="card-text text-muted">{{ page.description }}</p>
+        <a href="{{ page.url }}" class="btn btn-primary btn-sm">Open</a>
       </div>
     </div>
   </div>
-  <div class="col-md-4 mb-3">
-    <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">Email Template</h5>
-        <p class="card-text text-muted">Edit the wording of the Infradapt onboarding request email.</p>
-        <a href="{{ url_for('admin.email_template') }}" class="btn btn-primary btn-sm">Open</a>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4 mb-3">
-    <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">Active Directory Integration</h5>
-        <p class="card-text text-muted">Connect an LDAP/AD server to sync Employee accounts automatically.</p>
-        <a href="{{ url_for('admin.ldap_settings') }}" class="btn btn-primary btn-sm">Open</a>
-      </div>
-    </div>
-  </div>
+  {% endfor %}
 </div>
 {% endblock %}

@@ -8,11 +8,21 @@ from app.crypto import encrypt_secret
 from app.emailing import (
     DEFAULT_ONBOARDING_EMAIL_SUBJECT,
     DEFAULT_ONBOARDING_EMAIL_BODY,
+    DEFAULT_TASK_REMINDER_SUBJECT,
+    DEFAULT_TASK_REMINDER_BODY,
     render_onboarding_email_template,
+    render_task_reminder_email_template,
 )
 from app.extensions import db
 from app.ldap_sync import run_sync, test_connection
-from app.models import EmailSettings, EmailTemplate, INFRADAPT_SUPPORT_EMAIL, LdapSettings
+from app.models import (
+    EmailSettings,
+    EmailTemplate,
+    INFRADAPT_SUPPORT_EMAIL,
+    LdapSettings,
+    TaskReminderSettings,
+)
+from app.task_reminders import send_reminders
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -265,3 +275,113 @@ def _build_candidate_settings(settings):
         settings.user_filter if settings else "(&(objectCategory=person)(objectClass=user))"
     )
     return candidate
+
+
+_SAMPLE_TASK_LIST = (
+    "- Order equipment (Marie Curie) -- due 2026-03-02\n"
+    "- Schedule IT onboarding call (Marie Curie) -- due 2026-03-04"
+)
+
+
+def _task_reminder_preview(subject_template, body_template, website_url):
+    return render_task_reminder_email_template(
+        subject_template,
+        body_template,
+        employee_name=current_user.name,
+        task_count=2,
+        task_list=_SAMPLE_TASK_LIST,
+        website_url=website_url or "https://onboarding.example.com",
+    )
+
+
+@admin_bp.route("/task-reminders", methods=["GET", "POST"])
+@login_required
+@admin_required
+def task_reminders():
+    settings = TaskReminderSettings.query.first()
+
+    if request.method == "POST":
+        if request.form.get("action") == "send":
+            if settings is None or not settings.enabled or not settings.website_url:
+                flash("Save and enable Task Reminders (with a website URL) before sending.", "danger")
+                return redirect(url_for("admin.task_reminders"))
+
+            sent, errors = send_reminders(settings)
+            settings.last_sent_date = datetime.utcnow().date()
+            settings.last_sent_status = "ok" if not errors else "error"
+            settings.last_sent_message = "; ".join(errors) if errors else None
+            settings.last_sent_recipient_count = sent
+            db.session.commit()
+
+            flash(
+                f"Sent {sent} reminder(s), {len(errors)} error(s).",
+                "success" if not errors else "warning",
+            )
+            return redirect(url_for("admin.task_reminders"))
+
+        # action == "save" (default form submit)
+        website_url = request.form.get("website_url", "").strip()
+        send_time = request.form.get("send_time", "").strip()
+        subject_template = request.form.get("subject_template", "").strip()
+        body_template = request.form.get("body_template", "").strip()
+        enabled = request.form.get("enabled") == "on"
+
+        error = None
+        if enabled and not website_url:
+            error = "Website URL is required to enable reminders."
+        elif enabled and not send_time:
+            error = "Send time is required to enable reminders."
+        elif send_time:
+            try:
+                hour, minute = (int(part) for part in send_time.split(":"))
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError
+            except ValueError:
+                error = "Send time must be a valid time."
+        if not error and subject_template and len(subject_template) > 255:
+            error = "Subject template must be 255 characters or fewer."
+
+        if error:
+            flash(error, "danger")
+            return render_template(
+                "admin/task_reminders.html",
+                settings=settings,
+                form=request.form,
+                preview=_task_reminder_preview(
+                    subject_template or DEFAULT_TASK_REMINDER_SUBJECT,
+                    body_template or DEFAULT_TASK_REMINDER_BODY,
+                    website_url,
+                ),
+                default_subject=DEFAULT_TASK_REMINDER_SUBJECT,
+                default_body=DEFAULT_TASK_REMINDER_BODY,
+            )
+
+        if settings is None:
+            settings = TaskReminderSettings()
+            db.session.add(settings)
+
+        settings.enabled = enabled
+        settings.website_url = website_url or None
+        settings.send_time = send_time or None
+        settings.subject_template = subject_template or None
+        settings.body_template = body_template or None
+        settings.updated_by = current_user.id
+        db.session.commit()
+
+        flash("Task Reminders settings saved.", "success")
+        return redirect(url_for("admin.task_reminders"))
+
+    subject_template = (
+        settings.subject_template if settings and settings.subject_template else DEFAULT_TASK_REMINDER_SUBJECT
+    )
+    body_template = settings.body_template if settings and settings.body_template else DEFAULT_TASK_REMINDER_BODY
+    website_url = settings.website_url if settings else None
+
+    return render_template(
+        "admin/task_reminders.html",
+        settings=settings,
+        form=None,
+        preview=_task_reminder_preview(subject_template, body_template, website_url),
+        default_subject=DEFAULT_TASK_REMINDER_SUBJECT,
+        default_body=DEFAULT_TASK_REMINDER_BODY,
+    )

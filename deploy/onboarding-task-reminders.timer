@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every 5 minutes whether the daily task reminder email is due
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+Unit=onboarding-task-reminders.service
+
+[Install]
+WantedBy=timers.target

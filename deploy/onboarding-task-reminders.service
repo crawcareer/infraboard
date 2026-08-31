@@ -1,0 +1,13 @@
+[Unit]
+Description=Infradapt Onboarding Tracker - daily task reminder emails
+After=network.target
+
+[Service]
+Type=oneshot
+User=onboarding
+Group=onboarding
+WorkingDirectory=/opt/onboarding-app
+EnvironmentFile=/opt/onboarding-app/.env
+ExecStart=/opt/onboarding-app/venv/bin/python send_task_reminders.py
+StandardOutput=append:/var/log/onboarding-app/task-reminders.log
+StandardError=append:/var/log/onboarding-app/task-reminders.error.log
