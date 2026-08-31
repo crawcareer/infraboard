@@ -1,7 +1,13 @@
 """Sends pending Infradapt onboarding request emails whose due date has
-arrived (or passed). Intended to run daily via
-deploy/onboarding-scheduled-emails.timer, ahead of the existing
-onboarding-email.timer.
+arrived (or passed). Runs every 5 minutes via
+deploy/onboarding-scheduled-emails.timer, same heartbeat cadence as
+sync_ldap_employees.py and send_task_reminders.py -- so a task due "today"
+sends within a few minutes rather than waiting for a once-daily run.
+
+No self-gating logic is needed here (unlike those two): each HireEvent's
+own email_sent_at is already the per-task completion marker, so running
+this frequently just means newly-due tasks get picked up sooner, with no
+risk of double-sending.
 
     python send_scheduled_emails.py
 
