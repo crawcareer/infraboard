@@ -34,11 +34,12 @@
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="{{ url_for('main.dashboard') }}">Summary</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('candidates.list_candidates') }}">Candidates</a></li>
-          {% if current_user.is_admin %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('templates_admin.list_templates') }}">Timeline Templates</a></li>
+          {% if current_user.is_admin %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.team_list') }}">Team</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.index') }}">Admin</a></li>
           {% endif %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.help_page') }}">Help</a></li>
         </ul>
         <ul class="navbar-nav align-items-lg-center">
           <li class="nav-item theme-picker me-lg-2 my-1 my-lg-0">

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block content %}
+<h2 class="mb-4">Help</h2>
+
+<div class="accordion" id="helpAccordion">
+
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#helpSummary">Summary</button>
+    </h2>
+    <div id="helpSummary" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+      <div class="accordion-body">
+        <p>The Summary page (this app's home page) has two panels:</p>
+        <ul>
+          <li>
+            <strong>My Tasks</strong> &mdash; every task currently assigned to you that isn't done yet. Each row
+            shows the candidate it's for, the task itself, whether it's a Pre-Hire or Post-Hire task, and its due
+            date. A row is highlighted yellow if it's due today, or red if it's overdue.
+          </li>
+          <li>
+            <strong>Candidates by Status</strong> &mdash; a count of candidates in each stage of the pipeline
+            (Prospect, Interviewing, Offer, Hired, Rejected, Archived), with a link through to the full candidate
+            list.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpCandidates">Candidates</button>
+    </h2>
+    <div id="helpCandidates" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+      <div class="accordion-body">
+        <p><strong>Adding a candidate</strong></p>
+        <p>
+          Candidates &rarr; Add candidate. Only the name is required; email, phone, position, status, and start
+          date are all optional and can be filled in later. You can also attach a resume right away, or add one
+          afterward from the candidate's own page.
+        </p>
+
+        <p><strong>Adding timeline events</strong></p>
+        <p>
+          Open a candidate and use "+ Add event" under either the Pre-Hire or Post-Hire timeline to add a one-off
+          task by hand. If you'd rather start from a checklist, set the candidate's status to "Hired" (or click
+          "Generate timelines from templates") to fill in both timelines automatically from whichever Timeline
+          Templates exist &mdash; due dates get calculated from the candidate's start date. Each task can be
+          assigned to a team member, given a due date, and checked off once it's done.
+        </p>
+
+        <p><strong>Adding the Infradapt onboarding email task</strong></p>
+        <p>
+          From either timeline, click "+ Add Infradapt onboarding email task." Pick the date the email should go
+          out, then click Preview to see the email the system will generate (candidate name, start date, and you
+          as the point of contact for questions). You can edit the subject and body before creating the task
+          &mdash; whatever you save is exactly what gets sent, automatically, on that date, to Infradapt's support
+          address.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpTemplates">Timeline Templates</button>
+    </h2>
+    <div id="helpTemplates" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+      <div class="accordion-body">
+        <p>
+          Timeline Templates are reusable checklists that get copied onto a candidate's Pre-Hire or Post-Hire
+          timeline when they're hired. There are two ways to have them:
+        </p>
+        <ul>
+          <li>
+            <strong>Default templates</strong> &mdash; click "Generate default templates" here to create a
+            ready-made "Pre-Hire" and "Post-Hire" checklist covering the usual steps (paperwork, equipment, IT
+            accounts, training, check-ins, and so on). It only creates whichever of the two doesn't already exist,
+            so it's safe to click even if you already have one of them.
+          </li>
+          <li>
+            <strong>Custom templates</strong> &mdash; click "New template" to build your own from scratch, or open
+            an existing one to add, reorder, or remove its events. Each event has a title, an optional description,
+            and a day offset (how many days before or after the start date it's due).
+          </li>
+        </ul>
+        <p class="mb-0 text-muted">
+          A template's name matters only for the two specifically named "Pre-Hire" and "Post-Hire" &mdash; those
+          are what get applied automatically when a candidate is hired. Other templates you create are available
+          from a candidate's page but aren't applied automatically.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {% if current_user.is_admin %}
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpTeam">Team</button>
+    </h2>
+    <div id="helpTeam" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+      <div class="accordion-body">
+        <p><strong>Employee vs. Admin</strong></p>
+        <p>
+          <strong>Employee</strong> accounts can create and manage candidates, be assigned tasks, and create or
+          edit Timeline Templates. They cannot see the Team or Admin pages. <strong>Admin</strong> accounts can do
+          everything an Employee can, plus manage team members here and configure everything under Admin.
+        </p>
+
+        <p class="mb-0"><strong>Active Directory Integration</strong></p>
+        <p class="mb-0">
+          If Active Directory Integration is configured and enabled (under Admin), user accounts are created and
+          kept in sync automatically from your AD directory as Employee accounts &mdash; you shouldn't need to add
+          them by hand. Accounts disabled in AD get deactivated here automatically too. If you manually change a
+          synced account's name, email, role, or active status yourself, that specific field is remembered and
+          the next sync won't overwrite it &mdash; useful for promoting a synced account to Admin, for example.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpAdmin">Admin</button>
+    </h2>
+    <div id="helpAdmin" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+      <div class="accordion-body">
+        <p class="text-muted">
+          The four sections here are system configuration, intended for whoever technically administers this
+          deployment rather than day-to-day users.
+        </p>
+        <ul class="mb-0">
+          <li>
+            <strong>Active Directory Integration</strong> &mdash; connection details for your LDAP/AD server (host,
+            port, encryption, a service account's bind DN and password, the search base and user filter to scope
+            which accounts get synced) and how often the sync runs. Use "Test connection" before relying on it,
+            and "Sync now" to run it immediately instead of waiting for the schedule.
+          </li>
+          <li>
+            <strong>Email Settings</strong> &mdash; the SMTP server this app sends all outbound email through
+            (Infradapt onboarding request emails and task reminders both use this). Standard SMTP AUTH fields:
+            host, port, TLS, and credentials for the sending account.
+          </li>
+          <li>
+            <strong>Email Template</strong> &mdash; the wording of the Infradapt onboarding request email, with a
+            live preview. Editing it only affects tasks created afterward; ones already scheduled keep whatever
+            was generated when they were created.
+          </li>
+          <li>
+            <strong>Task Reminders</strong> &mdash; a daily digest email to every user with pending tasks, listing
+            what's assigned to them with a link back to this site. Configure whether it's on, what time it goes
+            out, and the site's public URL for the link.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

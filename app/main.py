@@ -31,3 +31,9 @@ def dashboard():
         my_tasks=my_tasks,
         today=today,
     )
+
+
+@main_bp.route("/help")
+@login_required
+def help_page():
+    return render_template("help.html")
