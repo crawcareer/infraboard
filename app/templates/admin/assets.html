@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}User Asset Inventory{% endblock %}
+{% block content %}
+<h2>User Asset Inventory</h2>
+<p class="text-muted">
+  Define the assets you want to track who holds (e.g. "Security code - Brookside Office").
+  Whether each team member has one is a simple yes/no, set from their Edit page under Team.
+</p>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header">Add an asset</div>
+      <div class="card-body">
+        <form method="post" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="col-9">
+            <input type="text" class="form-control" name="name" placeholder="e.g. Security code - Brookside Office" required maxlength="200">
+          </div>
+          <div class="col-3">
+            <button type="submit" class="btn btn-primary w-100">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <table class="table table-bordered bg-white align-middle">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Held by</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asset in assets %}
+        <tr>
+          <td>{{ asset.name }}</td>
+          <td>{{ asset.users | length }}</td>
+          <td class="text-end">
+            <form action="{{ url_for('admin.delete_asset', asset_id=asset.id) }}" method="post" class="d-inline" onsubmit="return confirm('Remove asset \'{{ asset.name }}\'? This un-assigns it from everyone who has it.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-center text-muted">No assets defined yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

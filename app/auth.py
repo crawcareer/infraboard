@@ -12,7 +12,7 @@ from flask import (
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app.extensions import db
-from app.models import User, ROLES, ROLE_ADMIN, ROLE_EMPLOYEE
+from app.models import Asset, User, ROLES, ROLE_ADMIN, ROLE_EMPLOYEE
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -83,11 +83,14 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
-# --- Team management (admin only) ---------------------------------------
+# --- Team management -----------------------------------------------------
+# Viewable by any signed-in user (Employees included, so they can toggle
+# asset checkboxes). Adding, removing, resetting a password, and changing
+# anything about a user other than their assets stays admin-only -- see
+# team_edit's branch on current_user.is_admin below.
 
 @auth_bp.route("/team")
 @login_required
-@admin_required
 def team_list():
     users = User.query.order_by(User.name).all()
     return render_template("team/list.html", users=users)
@@ -140,13 +143,29 @@ def team_new():
     return render_template("team/form.html", user=None, form={})
 
 
+def _apply_asset_selection(user, all_assets):
+    selected_ids = {int(v) for v in request.form.getlist("asset_ids") if v.isdigit()}
+    user.assets = [a for a in all_assets if a.id in selected_ids]
+
+
 @auth_bp.route("/team/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required
-@admin_required
 def team_edit(user_id):
     user = User.query.get_or_404(user_id)
+    all_assets = Asset.query.order_by(Asset.name).all()
 
     if request.method == "POST":
+        if not current_user.is_admin:
+            # Employees only ever reach this branch. Every other field
+            # (name/email/role/active/password) is simply never read from
+            # the request here, no matter what a crafted POST might
+            # include -- there's nothing below that could promote or
+            # demote anyone, only the asset list gets touched.
+            _apply_asset_selection(user, all_assets)
+            db.session.commit()
+            flash(f"Updated assets for {user.name}.", "success")
+            return redirect(url_for("auth.team_list"))
+
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
         role = request.form.get("role", ROLE_EMPLOYEE)
@@ -173,7 +192,7 @@ def team_edit(user_id):
 
         if error:
             flash(error, "danger")
-            return render_template("team/form.html", user=user, form=request.form)
+            return render_template("team/form.html", user=user, form=request.form, assets=all_assets)
 
         # An LDAP sync will skip any field marked locked here -- lock
         # exactly the fields actually being changed by this edit, not the
@@ -194,11 +213,12 @@ def team_edit(user_id):
         user.active = active
         if new_password:
             user.set_password(new_password)
+        _apply_asset_selection(user, all_assets)
         db.session.commit()
         flash(f"Team member {name} updated.", "success")
         return redirect(url_for("auth.team_list"))
 
-    return render_template("team/form.html", user=user, form=None)
+    return render_template("team/form.html", user=user, form=None, assets=all_assets)
 
 
 @auth_bp.route("/team/<int:user_id>/delete", methods=["POST"])

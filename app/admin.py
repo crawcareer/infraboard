@@ -16,6 +16,7 @@ from app.emailing import (
 from app.extensions import db
 from app.ldap_sync import run_sync, test_connection
 from app.models import (
+    Asset,
     EmailSettings,
     EmailTemplate,
     INFRADAPT_SUPPORT_EMAIL,
@@ -385,3 +386,38 @@ def task_reminders():
         default_subject=DEFAULT_TASK_REMINDER_SUBJECT,
         default_body=DEFAULT_TASK_REMINDER_BODY,
     )
+
+
+@admin_bp.route("/assets", methods=["GET", "POST"])
+@login_required
+@admin_required
+def assets():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if not name:
+            flash("Asset name is required.", "danger")
+        elif Asset.query.filter_by(name=name).first():
+            flash(f"An asset named '{name}' already exists.", "danger")
+        else:
+            db.session.add(Asset(name=name))
+            db.session.commit()
+            flash(f"Added asset '{name}'.", "success")
+        return redirect(url_for("admin.assets"))
+
+    asset_list = Asset.query.order_by(Asset.name).all()
+    return render_template("admin/assets.html", assets=asset_list)
+
+
+@admin_bp.route("/assets/<int:asset_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_asset(asset_id):
+    asset = Asset.query.get_or_404(asset_id)
+    name = asset.name
+    # Deleting an Asset with an active many-to-many `secondary=` relationship
+    # automatically removes the matching user_assets rows -- SQLAlchemy
+    # manages that association table itself, no manual cleanup needed.
+    db.session.delete(asset)
+    db.session.commit()
+    flash(f"Removed asset '{name}'. It's no longer tracked for any user.", "info")
+    return redirect(url_for("admin.assets"))

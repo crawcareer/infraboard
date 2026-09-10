@@ -3,7 +3,9 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Team</h2>
+  {% if current_user.is_admin %}
   <a href="{{ url_for('auth.team_new') }}" class="btn btn-primary">Add team member</a>
+  {% endif %}
 </div>
 
 <table class="table table-bordered bg-white align-middle">
@@ -32,6 +34,7 @@
       </td>
       <td class="text-end">
         <a href="{{ url_for('auth.team_edit', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        {% if current_user.is_admin %}
         <form action="{{ url_for('auth.team_reset_password', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Reset password for {{ user.name }}?');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm btn-outline-warning">Reset password</button>
@@ -41,6 +44,7 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
         </form>
+        {% endif %}
         {% endif %}
       </td>
     </tr>

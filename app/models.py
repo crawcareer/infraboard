@@ -27,6 +27,27 @@ TASK_TYPES = (TASK_TYPE_MANUAL, TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL)
 
 INFRADAPT_SUPPORT_EMAIL = "getsupport@Infradapt.com"
 
+# Plain many-to-many association: a row's mere existence means "this user
+# has this asset" -- there's nothing else to track per the spec (no
+# quantity, no serial number, just yes/no), so no extra columns here.
+user_assets = db.Table(
+    "user_assets",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("asset_id", db.Integer, db.ForeignKey("assets.id"), primary_key=True),
+)
+
+
+class Asset(db.Model):
+    """A trackable asset type (Admin > User Asset Inventory), e.g. "Security
+    code - Brookside Office". Whether a given user has one is tracked via
+    the user_assets association table, not on this row."""
+
+    __tablename__ = "assets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -62,6 +83,7 @@ class User(UserMixin, db.Model):
         backref="assignee",
         lazy="dynamic",
     )
+    assets = db.relationship("Asset", secondary=user_assets, backref="users")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
