@@ -35,8 +35,8 @@
       <tbody>
         {% for asset in assets %}
         <tr>
-          <td>{{ asset.name }}</td>
-          <td>{{ asset.users | length }}</td>
+          <td><a href="{{ url_for('admin.asset_detail', asset_id=asset.id) }}">{{ asset.name }}</a></td>
+          <td><a href="{{ url_for('admin.asset_detail', asset_id=asset.id) }}">{{ asset.users | length }}</a></td>
           <td class="text-end">
             <form action="{{ url_for('admin.delete_asset', asset_id=asset.id) }}" method="post" class="d-inline" onsubmit="return confirm('Remove asset \'{{ asset.name }}\'? This un-assigns it from everyone who has it.');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

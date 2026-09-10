@@ -1,4 +1,4 @@
-{% macro timeline_section(candidate, events, timeline_type, label, users, csrf_token) %}
+{% macro timeline_section(candidate, events, timeline_type, label, users, csrf_token, email_task_type_labels) %}
 <div class="timeline-section mb-4">
   <h5>{{ label }}</h5>
   {% if events %}
@@ -27,7 +27,7 @@
         </td>
         <td>
           <strong>{{ e.title }}</strong>
-          {% if e.task_type != 'manual' %}<span class="badge bg-secondary">Email task</span>{% endif %}
+          {% if e.task_type != 'manual' %}<span class="badge bg-secondary">{{ email_task_type_labels.get(e.task_type, 'Email task') }}</span>{% endif %}
           {% if e.description %}<div class="text-muted small">{{ e.description }}</div>{% endif %}
           {% if e.task_type != 'manual' %}
           <div class="text-muted small">
@@ -102,7 +102,7 @@
   {% endif %}
 
   <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#add-event-{{ timeline_type }}">+ Add event</button>
-  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('candidates.new_email_task', candidate_id=candidate.id, timeline_type=timeline_type) }}">+ Add Infradapt onboarding email task</a>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('candidates.new_email_task', candidate_id=candidate.id, timeline_type=timeline_type) }}">+ Add Automated Email</a>
   <div class="collapse mt-2" id="add-event-{{ timeline_type }}">
     <form method="post" action="{{ url_for('candidates.add_event', candidate_id=candidate.id) }}" class="row g-2">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

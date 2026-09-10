@@ -23,9 +23,50 @@ HIRE_EVENT_STATUSES = ("pending", "done")
 
 TASK_TYPE_MANUAL = "manual"
 TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL = "infradapt_onboarding_email"
-TASK_TYPES = (TASK_TYPE_MANUAL, TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL)
+TASK_TYPE_REJECTION_EMAIL = "rejection_email"
+TASK_TYPE_INTERVIEW_PHONE_EMAIL = "interview_phone_email"
+TASK_TYPE_INTERVIEW_IN_PERSON_EMAIL = "interview_in_person_email"
+TASK_TYPE_OFFER_EMAIL = "offer_email"
+
+# Every automated-email task type. New ones should be added here, to
+# EMAIL_TASK_TYPE_LABELS below, and to DEFAULT_EMAIL_TEMPLATES in
+# app/emailing.py -- everything else (the create-task form, Admin > Email
+# Templates, the sender script) drives off these three.
+EMAIL_TASK_TYPES = (
+    TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
+    TASK_TYPE_REJECTION_EMAIL,
+    TASK_TYPE_INTERVIEW_PHONE_EMAIL,
+    TASK_TYPE_INTERVIEW_IN_PERSON_EMAIL,
+    TASK_TYPE_OFFER_EMAIL,
+)
+TASK_TYPES = (TASK_TYPE_MANUAL,) + EMAIL_TASK_TYPES
+
+EMAIL_TASK_TYPE_LABELS = {
+    TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL: "Infradapt Onboarding",
+    TASK_TYPE_REJECTION_EMAIL: "Rejection",
+    TASK_TYPE_INTERVIEW_PHONE_EMAIL: "Interview Request - Phone",
+    TASK_TYPE_INTERVIEW_IN_PERSON_EMAIL: "Interview Request - In Person",
+    TASK_TYPE_OFFER_EMAIL: "Offer",
+}
 
 INFRADAPT_SUPPORT_EMAIL = "getsupport@Infradapt.com"
+
+
+def email_task_title(task_type):
+    """Task title shown in a candidate's timeline for an automated email
+    task of this type."""
+    if task_type == TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL:
+        return "Send Infradapt onboarding request"
+    return f"Send {EMAIL_TASK_TYPE_LABELS.get(task_type, task_type)} email"
+
+
+def email_task_recipient(task_type, candidate):
+    """Who an automated email task's "To" address is: the fixed Infradapt
+    support address for that one type, the candidate's own email address
+    for every other type (may be None if the candidate has none on file)."""
+    if task_type == TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL:
+        return INFRADAPT_SUPPORT_EMAIL
+    return candidate.email if candidate else None
 
 # Plain many-to-many association: a row's mere existence means "this user
 # has this asset" -- there's nothing else to track per the spec (no
@@ -131,18 +172,21 @@ class EmailSettings(db.Model):
 
 
 class EmailTemplate(db.Model):
-    """Singleton row holding the admin-editable Infradapt onboarding
-    request email template (Admin > Email Template).
+    """One row per automated email task type (Admin > Email Templates) --
+    Infradapt Onboarding, Rejection, Interview Request (Phone / In Person),
+    Offer, keyed by task_type (one of EMAIL_TASK_TYPES above).
 
-    app/emailing.py falls back to its own built-in default subject/body
-    when no row exists yet or a field is empty. Editing this only affects
-    tasks created after the save -- HireEvent.email_subject/email_body are
-    frozen at task-creation time and don't change retroactively.
+    app/emailing.py falls back to that type's built-in default subject/body
+    when no row exists for it yet, or a field on it is empty. Editing a
+    template only affects tasks created after the save --
+    HireEvent.email_subject/email_body are frozen at task-creation time
+    and don't change retroactively.
     """
 
     __tablename__ = "email_templates"
 
     id = db.Column(db.Integer, primary_key=True)
+    task_type = db.Column(db.String(40), unique=True, nullable=False)
     subject_template = db.Column(db.String(255), nullable=True)
     body_template = db.Column(db.Text, nullable=True)
     updated_at = db.Column(
@@ -346,10 +390,11 @@ class HireEvent(db.Model):
 
     # --- Task type / templated email tasks ---------------------------------
     # Most HireEvents are plain manual checklist items (task_type="manual").
-    # A task_type of TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL instead represents
-    # a task whose completion is driven by send_scheduled_emails.py sending
-    # the stored email_subject/email_body on the task's due_date, rather
-    # than a human toggling it done.
+    # Any task_type in EMAIL_TASK_TYPES instead represents a task whose
+    # completion is driven by send_scheduled_emails.py sending the stored
+    # email_subject/email_body on the task's due_date, rather than a human
+    # toggling it done. Recipient is derived at send time from task_type +
+    # candidate (see email_task_recipient above), not stored on this row.
     task_type = db.Column(db.String(30), nullable=False, default=TASK_TYPE_MANUAL)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     email_subject = db.Column(db.String(255), nullable=True)

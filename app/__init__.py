@@ -66,13 +66,14 @@ def create_app(config_class=Config):
 
     @app.context_processor
     def _inject_globals():
-        from app.models import CANDIDATE_STATUSES, ROLES, TIMELINE_TYPES
+        from app.models import CANDIDATE_STATUSES, ROLES, TIMELINE_TYPES, EMAIL_TASK_TYPE_LABELS
 
         return {
             "candidate_statuses": CANDIDATE_STATUSES,
             "roles": ROLES,
             "timeline_types": TIMELINE_TYPES,
             "current_user": current_user,
+            "email_task_type_labels": EMAIL_TASK_TYPE_LABELS,
         }
 
     @app.template_filter("dtfmt")

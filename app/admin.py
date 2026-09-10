@@ -1,26 +1,29 @@
-from datetime import datetime
+from datetime import date, datetime
+from types import SimpleNamespace
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.auth import admin_required
 from app.crypto import encrypt_secret
 from app.emailing import (
-    DEFAULT_ONBOARDING_EMAIL_SUBJECT,
-    DEFAULT_ONBOARDING_EMAIL_BODY,
+    DEFAULT_EMAIL_TEMPLATES,
     DEFAULT_TASK_REMINDER_SUBJECT,
     DEFAULT_TASK_REMINDER_BODY,
-    render_onboarding_email_template,
+    render_candidate_email_template,
     render_task_reminder_email_template,
 )
 from app.extensions import db
 from app.ldap_sync import run_sync, test_connection
 from app.models import (
     Asset,
+    EMAIL_TASK_TYPE_LABELS,
+    EMAIL_TASK_TYPES,
     EmailSettings,
     EmailTemplate,
     INFRADAPT_SUPPORT_EMAIL,
     LdapSettings,
+    TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
     TaskReminderSettings,
 )
 from app.task_reminders import send_reminders
@@ -88,30 +91,46 @@ def email_settings():
     return render_template("admin/email_settings.html", settings=settings, form=None)
 
 
+_SAMPLE_CANDIDATE = SimpleNamespace(name="Jane Doe", start_date=date(2026, 3, 2), position="Software Engineer", email="jane.doe@example.com")
+
+
 def _sample_preview(subject_template, body_template):
-    return render_onboarding_email_template(
-        subject_template,
-        body_template,
-        candidate_name="Jane Doe",
-        start_date="2026-03-02",
-        creator_name=current_user.name,
-        creator_email=current_user.email,
-    )
+    return render_candidate_email_template(subject_template, body_template, _SAMPLE_CANDIDATE, current_user)
 
 
-@admin_bp.route("/email-template", methods=["GET", "POST"])
+@admin_bp.route("/email-templates")
 @login_required
 @admin_required
-def email_template():
-    template = EmailTemplate.query.first()
+def email_templates():
+    customized_types = {row.task_type for row in EmailTemplate.query.all()}
+    types = [
+        {"task_type": t, "label": EMAIL_TASK_TYPE_LABELS[t], "customized": t in customized_types}
+        for t in EMAIL_TASK_TYPES
+    ]
+    return render_template("admin/email_templates_index.html", types=types)
+
+
+@admin_bp.route("/email-templates/<task_type>", methods=["GET", "POST"])
+@login_required
+@admin_required
+def email_template_edit(task_type):
+    if task_type not in EMAIL_TASK_TYPES:
+        abort(404)
+
+    label = EMAIL_TASK_TYPE_LABELS[task_type]
+    defaults = DEFAULT_EMAIL_TEMPLATES[task_type]
+    template = EmailTemplate.query.filter_by(task_type=task_type).first()
+    to_display = (
+        INFRADAPT_SUPPORT_EMAIL if task_type == TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL else "(the candidate's email address)"
+    )
 
     if request.method == "POST":
         if request.form.get("action") == "reset":
             if template:
                 db.session.delete(template)
                 db.session.commit()
-            flash("Email template reset to default.", "info")
-            return redirect(url_for("admin.email_template"))
+            flash(f"{label} email template reset to default.", "info")
+            return redirect(url_for("admin.email_template_edit", task_type=task_type))
 
         subject_template = request.form.get("subject_template", "").strip()
         body_template = request.form.get("body_template", "").strip()
@@ -125,16 +144,18 @@ def email_template():
         if error:
             flash(error, "danger")
             return render_template(
-                "admin/email_template.html",
+                "admin/email_template_edit.html",
+                task_type=task_type,
+                label=label,
                 subject_template=subject_template,
                 body_template=body_template,
                 preview=_sample_preview(subject_template, body_template),
                 updated=template,
-                infradapt_support_email=INFRADAPT_SUPPORT_EMAIL,
+                to_display=to_display,
             )
 
         if template is None:
-            template = EmailTemplate()
+            template = EmailTemplate(task_type=task_type)
             db.session.add(template)
 
         template.subject_template = subject_template
@@ -142,21 +163,21 @@ def email_template():
         template.updated_by = current_user.id
         db.session.commit()
 
-        flash("Email template saved.", "success")
-        return redirect(url_for("admin.email_template"))
+        flash(f"{label} email template saved.", "success")
+        return redirect(url_for("admin.email_template_edit", task_type=task_type))
 
-    subject_template = (
-        template.subject_template if template and template.subject_template else DEFAULT_ONBOARDING_EMAIL_SUBJECT
-    )
-    body_template = template.body_template if template and template.body_template else DEFAULT_ONBOARDING_EMAIL_BODY
+    subject_template = template.subject_template if template and template.subject_template else defaults["subject"]
+    body_template = template.body_template if template and template.body_template else defaults["body"]
 
     return render_template(
-        "admin/email_template.html",
+        "admin/email_template_edit.html",
+        task_type=task_type,
+        label=label,
         subject_template=subject_template,
         body_template=body_template,
         preview=_sample_preview(subject_template, body_template),
         updated=template,
-        infradapt_support_email=INFRADAPT_SUPPORT_EMAIL,
+        to_display=to_display,
     )
 
 
@@ -406,6 +427,15 @@ def assets():
 
     asset_list = Asset.query.order_by(Asset.name).all()
     return render_template("admin/assets.html", assets=asset_list)
+
+
+@admin_bp.route("/assets/<int:asset_id>")
+@login_required
+@admin_required
+def asset_detail(asset_id):
+    asset = Asset.query.get_or_404(asset_id)
+    holders = sorted(asset.users, key=lambda u: u.name)
+    return render_template("admin/asset_detail.html", asset=asset, holders=holders)
 
 
 @admin_bp.route("/assets/<int:asset_id>/delete", methods=["POST"])

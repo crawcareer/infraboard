@@ -1,12 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Email Template{% endblock %}
+{% block title %}{{ label }} Email Template{% endblock %}
 {% block content %}
-<h2>Infradapt Onboarding Email Template</h2>
-<p class="text-muted">
-  Used when creating a "Send Infradapt onboarding request" task. Editing this
-  only affects tasks created after you save &mdash; tasks that already exist
-  keep whatever subject/body was generated when they were created.
-</p>
+<p class="mb-1"><a href="{{ url_for('admin.email_templates') }}">&larr; Email Templates</a></p>
+<h2>{{ label }} Email Template</h2>
 
 <div class="row">
   <div class="col-lg-7">
@@ -23,12 +19,12 @@
             <textarea class="form-control" name="body_template" rows="10" required>{{ body_template }}</textarea>
           </div>
           <button type="submit" class="btn btn-primary">Save</button>
-          <a href="{{ url_for('admin.index') }}" class="btn btn-link">Cancel</a>
+          <a href="{{ url_for('admin.email_templates') }}" class="btn btn-link">Cancel</a>
         </form>
       </div>
     </div>
 
-    <form method="post" onsubmit="return confirm('Reset the email template to the default? This discards your customizations.');">
+    <form method="post" onsubmit="return confirm('Reset the {{ label }} email template to the default? This discards your customizations.');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="reset">
       <button type="submit" class="btn btn-outline-danger btn-sm" {% if not updated %}disabled title="Already using the default"{% endif %}>
@@ -51,6 +47,7 @@
         <ul class="mb-0 small">
           <li><code>$candidate_name</code> &mdash; the candidate's name</li>
           <li><code>$start_date</code> &mdash; their start date, or "TBD" if not set</li>
+          <li><code>$position</code> &mdash; the position they applied for</li>
           <li><code>$creator_name</code> &mdash; name of whoever creates the task</li>
           <li><code>$creator_email</code> &mdash; their email, as point of contact</li>
         </ul>
@@ -60,7 +57,7 @@
     <div class="card">
       <div class="card-header">Preview (sample data)</div>
       <div class="card-body">
-        <p class="mb-1"><strong>To:</strong> {{ infradapt_support_email }}</p>
+        <p class="mb-1"><strong>To:</strong> {{ to_display }}</p>
         <p class="mb-1"><strong>Subject:</strong> {{ preview[0] }}</p>
         <hr>
         <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ preview[1] }}</pre>

@@ -42,8 +42,8 @@
 
 <div class="row">
   <div class="col-lg-7">
-    {{ timeline_section(candidate, pre_hire, 'pre_hire', 'Pre-Hire Timeline', users, csrf_token) }}
-    {{ timeline_section(candidate, post_hire, 'post_hire', 'Post-Hire Timeline', users, csrf_token) }}
+    {{ timeline_section(candidate, pre_hire, 'pre_hire', 'Pre-Hire Timeline', users, csrf_token, email_task_type_labels) }}
+    {{ timeline_section(candidate, post_hire, 'post_hire', 'Post-Hire Timeline', users, csrf_token, email_task_type_labels) }}
   </div>
 
   <div class="col-lg-5">

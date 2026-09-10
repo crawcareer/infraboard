@@ -1,7 +1,7 @@
 """Templated email rendering + SMTP sending for scheduled email tasks.
 
-render_infradapt_onboarding_email() is pure (no I/O) and safe to call from
-a request handler for the create-task preview step.
+render_email_task_template() is pure (no I/O) and safe to call from a
+request handler for the create-task preview step.
 
 send_email() talks to the SMTP server. Settings come from the admin-managed
 EmailSettings row (Admin > Email Settings) when one exists with a host
@@ -19,24 +19,86 @@ from string import Template
 
 from app.crypto import decrypt_secret
 
-# Defaults used when no Admin > Email Template row exists yet, or a field
-# in it is empty. Placeholders use string.Template's $name syntax (not
-# Jinja) deliberately: admins edit this as plain text, and Template.
-# safe_substitute() never executes code and never raises on an unknown or
-# malformed placeholder -- it just leaves it as literal text, which is a
-# much more forgiving failure mode for free-text admin input than Jinja
+# Defaults used per automated email task type (see EMAIL_TASK_TYPES in
+# app/models.py) when no Admin > Email Templates row exists for that type
+# yet, or a field on it is empty. Placeholders use string.Template's $name
+# syntax (not Jinja) deliberately: admins edit this as plain text, and
+# Template.safe_substitute() never executes code and never raises on an
+# unknown or malformed placeholder -- it just leaves it as literal text,
+# a much more forgiving failure mode for free-text admin input than Jinja
 # rendering (which would also be a code-execution surface) or str.format
 # (which raises KeyError on typos and needs literal braces escaped).
-DEFAULT_ONBOARDING_EMAIL_SUBJECT = "Onboarding request: $candidate_name"
-DEFAULT_ONBOARDING_EMAIL_BODY = (
-    "Hi Infradapt Support,\n\n"
-    "Please process the onboarding request for the following new hire:\n\n"
-    "Name: $candidate_name\n"
-    "Start date: $start_date\n\n"
-    "Point of contact for questions: $creator_name ($creator_email)\n\n"
-    "Thanks,\n"
-    "$creator_name\n"
-)
+DEFAULT_EMAIL_TEMPLATES = {
+    "infradapt_onboarding_email": {
+        "subject": "Onboarding request: $candidate_name",
+        "body": (
+            "Hi Infradapt Support,\n\n"
+            "Please process the onboarding request for the following new hire:\n\n"
+            "Name: $candidate_name\n"
+            "Start date: $start_date\n\n"
+            "Point of contact for questions: $creator_name ($creator_email)\n\n"
+            "Thanks,\n"
+            "$creator_name\n"
+        ),
+    },
+    "rejection_email": {
+        "subject": "Update on your application - $candidate_name",
+        "body": (
+            "Hi $candidate_name,\n\n"
+            "Thank you for taking the time to apply for $position and for speaking with "
+            "our team.\n\n"
+            "After careful consideration, we've decided to move forward with other "
+            "candidates for this position. We appreciate your interest and wish you the "
+            "best in your search.\n\n"
+            "If you have any questions, feel free to reach out.\n\n"
+            "Best regards,\n"
+            "$creator_name\n"
+            "$creator_email\n"
+        ),
+    },
+    "interview_phone_email": {
+        "subject": "Interview request: $position",
+        "body": (
+            "Hi $candidate_name,\n\n"
+            "Thank you for applying for $position. We'd like to schedule a phone "
+            "interview with you to learn more about your background.\n\n"
+            "Please reply with a few times that work well for you in the coming week, "
+            "and we'll get something on the calendar.\n\n"
+            "Looking forward to speaking with you.\n\n"
+            "Best regards,\n"
+            "$creator_name\n"
+            "$creator_email\n"
+        ),
+    },
+    "interview_in_person_email": {
+        "subject": "Interview request: $position",
+        "body": (
+            "Hi $candidate_name,\n\n"
+            "Thank you for applying for $position. We'd like to invite you in for an "
+            "in-person interview with our team.\n\n"
+            "Please reply with a few times that work well for you in the coming week, "
+            "and we'll get something scheduled along with directions to our office.\n\n"
+            "Looking forward to meeting you.\n\n"
+            "Best regards,\n"
+            "$creator_name\n"
+            "$creator_email\n"
+        ),
+    },
+    "offer_email": {
+        "subject": "Offer of employment: $position",
+        "body": (
+            "Hi $candidate_name,\n\n"
+            "We're excited to offer you the position of $position, with a proposed "
+            "start date of $start_date.\n\n"
+            "We'll follow up separately with full offer details. In the meantime, "
+            "please reach out with any questions.\n\n"
+            "Congratulations, and welcome to the team!\n\n"
+            "Best regards,\n"
+            "$creator_name\n"
+            "$creator_email\n"
+        ),
+    },
+}
 
 
 def apply_email_template(subject_template, body_template, **context):
@@ -48,20 +110,40 @@ def apply_email_template(subject_template, body_template, **context):
     return subject, body
 
 
-def render_onboarding_email_template(
-    subject_template, body_template, candidate_name, start_date, creator_name, creator_email
-):
-    """Substitute $candidate_name/$start_date/$creator_name/$creator_email
-    into the given subject/body templates. Pure, no I/O -- used both for
-    the real render and for the Admin > Email Template preview."""
-    return apply_email_template(
-        subject_template,
-        body_template,
-        candidate_name=candidate_name,
-        start_date=start_date,
-        creator_name=creator_name,
-        creator_email=creator_email,
-    )
+def build_candidate_email_context(candidate, creator):
+    """The standard placeholder set for every automated email task type:
+    $candidate_name, $start_date, $position, $creator_name, $creator_email."""
+    start_date = candidate.start_date.strftime("%Y-%m-%d") if candidate.start_date else "TBD"
+    return {
+        "candidate_name": candidate.name,
+        "start_date": start_date,
+        "position": candidate.position or "the position",
+        "creator_name": creator.name,
+        "creator_email": creator.email,
+    }
+
+
+def render_candidate_email_template(subject_template, body_template, candidate, creator):
+    """Substitute the standard candidate/creator placeholders into the
+    given subject/body templates. Pure, no I/O -- used both for the real
+    render and for the Admin > Email Templates preview."""
+    context = build_candidate_email_context(candidate, creator)
+    return apply_email_template(subject_template, body_template, **context)
+
+
+def render_email_task_template(task_type, candidate, creator):
+    """Return (subject, body) for an automated email task of this type,
+    using the admin-configured template (Admin > Email Templates) for it
+    if one is saved, falling back to that type's built-in default
+    otherwise."""
+    from app.models import EmailTemplate
+
+    stored = EmailTemplate.query.filter_by(task_type=task_type).first()
+    defaults = DEFAULT_EMAIL_TEMPLATES[task_type]
+    subject_template = stored.subject_template if stored and stored.subject_template else defaults["subject"]
+    body_template = stored.body_template if stored and stored.body_template else defaults["body"]
+
+    return render_candidate_email_template(subject_template, body_template, candidate, creator)
 
 
 # Defaults for the daily task-reminder email (Admin > Task Reminders).
@@ -100,25 +182,6 @@ def format_task_list(tasks):
         candidate_name = task.candidate.name if task.candidate else "(unknown candidate)"
         lines.append(f"- {task.title} ({candidate_name}) -- due {due}")
     return "\n".join(lines)
-
-
-def render_infradapt_onboarding_email(candidate, creator):
-    """Return (subject, body) for the Infradapt onboarding request email,
-    using the admin-configured template (Admin > Email Template) if one is
-    saved, falling back to the built-in default otherwise."""
-    from app.models import EmailTemplate
-
-    stored = EmailTemplate.query.first()
-    subject_template = (
-        stored.subject_template if stored and stored.subject_template else DEFAULT_ONBOARDING_EMAIL_SUBJECT
-    )
-    body_template = stored.body_template if stored and stored.body_template else DEFAULT_ONBOARDING_EMAIL_BODY
-
-    start_date = candidate.start_date.strftime("%Y-%m-%d") if candidate.start_date else "TBD"
-
-    return render_onboarding_email_template(
-        subject_template, body_template, candidate.name, start_date, creator.name, creator.email
-    )
 
 
 def _get_smtp_config():

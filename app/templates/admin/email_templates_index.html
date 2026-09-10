@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Email Templates{% endblock %}
+{% block content %}
+<h2>Email Templates</h2>
+<p class="text-muted">
+  Wording for each type of automated email task. Editing a template only affects tasks
+  created after you save &mdash; tasks that already exist keep whatever subject/body was
+  generated when they were created.
+</p>
+
+<table class="table table-bordered bg-white align-middle">
+  <thead>
+    <tr>
+      <th>Email type</th>
+      <th>Status</th>
+      <th class="text-end">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in types %}
+    <tr>
+      <td>{{ t.label }}</td>
+      <td>
+        {% if t.customized %}
+        <span class="badge bg-info text-dark">Customized</span>
+        {% else %}
+        <span class="badge bg-secondary">Default</span>
+        {% endif %}
+      </td>
+      <td class="text-end">
+        <a href="{{ url_for('admin.email_template_edit', task_type=t.task_type) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

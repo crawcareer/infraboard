@@ -17,7 +17,7 @@ from flask import (
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
-from app.emailing import render_infradapt_onboarding_email
+from app.emailing import render_email_task_template
 from app.extensions import db
 from app.models import (
     Candidate,
@@ -29,8 +29,10 @@ from app.models import (
     HireEvent,
     CANDIDATE_STATUSES,
     TASK_TYPE_MANUAL,
-    TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
-    INFRADAPT_SUPPORT_EMAIL,
+    EMAIL_TASK_TYPES,
+    EMAIL_TASK_TYPE_LABELS,
+    email_task_recipient,
+    email_task_title,
 )
 
 candidates_bp = Blueprint("candidates", __name__, url_prefix="/candidates")
@@ -501,6 +503,20 @@ def add_event(candidate_id):
     return redirect(url_for("candidates.detail", candidate_id=candidate.id))
 
 
+def _email_task_form_kwargs(candidate, task_type, due_date_raw, timeline_type, subject, body, previewed):
+    return dict(
+        candidate=candidate,
+        email_task_types=EMAIL_TASK_TYPES,
+        task_type=task_type,
+        due_date=due_date_raw,
+        timeline_type=timeline_type,
+        subject=subject,
+        body=body,
+        to_display=email_task_recipient(task_type, candidate) or "(candidate has no email on file)",
+        previewed=previewed,
+    )
+
+
 @candidates_bp.route("/<int:candidate_id>/events/email-task/new", methods=["GET", "POST"])
 @login_required
 def new_email_task(candidate_id):
@@ -508,12 +524,16 @@ def new_email_task(candidate_id):
 
     if request.method == "POST":
         step = request.form.get("step", "preview")
+        task_type = request.form.get("task_type", EMAIL_TASK_TYPES[0])
         due_date_raw = request.form.get("due_date", "").strip()
         timeline_type = request.form.get("timeline_type", "pre_hire")
+        label = EMAIL_TASK_TYPE_LABELS.get(task_type, task_type)
 
         error = None
         due_date = None
-        if not due_date_raw:
+        if task_type not in EMAIL_TASK_TYPES:
+            error = "Invalid email type."
+        elif not due_date_raw:
             error = "Due date is required — this is the date the email will be sent."
         else:
             try:
@@ -524,47 +544,38 @@ def new_email_task(candidate_id):
         if not error and timeline_type not in ("pre_hire", "post_hire"):
             error = "Invalid timeline type."
 
+        if not error and not email_task_recipient(task_type, candidate):
+            error = f"This candidate has no email address on file, so a {label} email can't be created for them."
+
         if error:
             flash(error, "danger")
             return render_template(
                 "candidates/email_task_form.html",
-                candidate=candidate,
-                due_date=due_date_raw,
-                timeline_type=timeline_type,
-                subject=request.form.get("subject"),
-                body=request.form.get("body"),
-                support_email=INFRADAPT_SUPPORT_EMAIL,
-                previewed=(step == "create"),
+                **_email_task_form_kwargs(
+                    candidate, task_type, due_date_raw, timeline_type,
+                    request.form.get("subject"), request.form.get("body"), step == "create",
+                ),
             )
 
         if step == "preview":
             existing = (
                 HireEvent.query.filter_by(
-                    candidate_id=candidate.id,
-                    task_type=TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
-                    status="pending",
+                    candidate_id=candidate.id, task_type=task_type, status="pending"
                 )
                 .filter(HireEvent.email_sent_at.is_(None))
                 .first()
             )
             if existing:
                 flash(
-                    "This candidate already has a pending, unsent Infradapt "
-                    "onboarding email task. Delete it first if you don't want "
-                    "to send two emails.",
+                    f"This candidate already has a pending, unsent {label} email task. "
+                    "Delete it first if you don't want to send two emails.",
                     "warning",
                 )
 
-            subject, body = render_infradapt_onboarding_email(candidate, current_user)
+            subject, body = render_email_task_template(task_type, candidate, current_user)
             return render_template(
                 "candidates/email_task_form.html",
-                candidate=candidate,
-                due_date=due_date_raw,
-                timeline_type=timeline_type,
-                subject=subject,
-                body=body,
-                support_email=INFRADAPT_SUPPORT_EMAIL,
-                previewed=True,
+                **_email_task_form_kwargs(candidate, task_type, due_date_raw, timeline_type, subject, body, True),
             )
 
         # step == "create"
@@ -575,13 +586,7 @@ def new_email_task(candidate_id):
             flash("Subject and body cannot be empty.", "danger")
             return render_template(
                 "candidates/email_task_form.html",
-                candidate=candidate,
-                due_date=due_date_raw,
-                timeline_type=timeline_type,
-                subject=subject,
-                body=body,
-                support_email=INFRADAPT_SUPPORT_EMAIL,
-                previewed=True,
+                **_email_task_form_kwargs(candidate, task_type, due_date_raw, timeline_type, subject, body, True),
             )
 
         max_order = db.session.query(db.func.max(HireEvent.sort_order)).filter_by(
@@ -590,8 +595,8 @@ def new_email_task(candidate_id):
 
         event = HireEvent(
             candidate_id=candidate.id,
-            title="Send Infradapt onboarding request",
-            task_type=TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL,
+            title=email_task_title(task_type),
+            task_type=task_type,
             email_subject=subject,
             email_body=body,
             due_date=due_date,
@@ -603,7 +608,7 @@ def new_email_task(candidate_id):
         )
         db.session.add(event)
         db.session.commit()
-        flash("Infradapt onboarding email task created.", "success")
+        flash(f"{label} email task created.", "success")
         return redirect(url_for("candidates.detail", candidate_id=candidate.id))
 
     default_timeline_type = request.args.get("timeline_type", "pre_hire")
@@ -612,13 +617,9 @@ def new_email_task(candidate_id):
 
     return render_template(
         "candidates/email_task_form.html",
-        candidate=candidate,
-        due_date="",
-        timeline_type=default_timeline_type,
-        subject=None,
-        body=None,
-        support_email=INFRADAPT_SUPPORT_EMAIL,
-        previewed=False,
+        **_email_task_form_kwargs(
+            candidate, EMAIL_TASK_TYPES[0], "", default_timeline_type, None, None, False
+        ),
     )
 
 
