@@ -14,11 +14,12 @@ CANDIDATE_STATUSES = (
     "interviewing",
     "offer",
     "hired",
+    "offboarding",
     "rejected",
     "archived",
 )
 
-TIMELINE_TYPES = ("pre_hire", "post_hire")
+TIMELINE_TYPES = ("pre_hire", "post_hire", "offboarding")
 HIRE_EVENT_STATUSES = ("pending", "done")
 
 TASK_TYPE_MANUAL = "manual"
@@ -310,6 +311,9 @@ class Candidate(db.Model):
 
     def post_hire_events(self):
         return self.hire_events.filter_by(timeline_type="post_hire")
+
+    def offboarding_events(self):
+        return self.hire_events.filter_by(timeline_type="offboarding")
 
     def __repr__(self):
         return f"<Candidate {self.name}>"

@@ -22,12 +22,16 @@
     <div class="row">
       <div class="col-md-3"><strong>Email:</strong> {{ candidate.email or '-' }}</div>
       <div class="col-md-3"><strong>Phone:</strong> {{ candidate.phone or '-' }}</div>
-      <div class="col-md-3"><strong>Start date:</strong> {{ candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '-' }}</div>
+      <div class="col-md-3">
+        <strong>{{ 'Last day:' if candidate.status == 'offboarding' else 'Start date:' }}</strong>
+        {{ candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '-' }}
+      </div>
       <div class="col-md-3"><strong>Created:</strong> {{ candidate.created_at.strftime('%Y-%m-%d') }}</div>
     </div>
   </div>
 </div>
 
+{% if candidate.status != 'offboarding' %}
 <div class="mb-4">
   <form method="post" action="{{ url_for('candidates.generate_timelines', candidate_id=candidate.id) }}" onsubmit="return confirm('Generate/regenerate Pre-Hire and Post-Hire timelines from the current templates? This replaces any previously generated events for this candidate.');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -39,11 +43,19 @@
     {% endif %}
   </form>
 </div>
+{% endif %}
 
 <div class="row">
   <div class="col-lg-7">
+    {% if candidate.status == 'offboarding' %}
+    {% if not candidate.start_date %}
+    <p class="text-muted small">Tip: set a last day (Edit) so due dates can be calculated for these tasks.</p>
+    {% endif %}
+    {{ timeline_section(candidate, offboarding, 'offboarding', 'Offboarding Timeline', users, csrf_token, email_task_type_labels) }}
+    {% else %}
     {{ timeline_section(candidate, pre_hire, 'pre_hire', 'Pre-Hire Timeline', users, csrf_token, email_task_type_labels) }}
     {{ timeline_section(candidate, post_hire, 'post_hire', 'Post-Hire Timeline', users, csrf_token, email_task_type_labels) }}
+    {% endif %}
   </div>
 
   <div class="col-lg-5">

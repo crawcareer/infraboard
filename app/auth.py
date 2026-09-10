@@ -246,6 +246,65 @@ def team_delete(user_id):
     return redirect(url_for("auth.team_list"))
 
 
+@auth_bp.route("/team/<int:user_id>/offboard", methods=["POST"])
+@login_required
+@admin_required
+def team_offboard(user_id):
+    user = User.query.get_or_404(user_id)
+
+    if user.id == current_user.id:
+        flash("You cannot offboard your own account.", "danger")
+        return redirect(url_for("auth.team_list"))
+
+    from app.candidates import _instantiate_timeline
+    from app.models import Candidate, HireEvent, TASK_TYPE_MANUAL
+
+    candidate = Candidate(name=user.name, email=user.email, status="offboarding")
+    db.session.add(candidate)
+    db.session.flush()  # assigns candidate.id, needed below
+
+    template_created = _instantiate_timeline(candidate, "Offboarding", "offboarding")
+
+    # One task per asset currently assigned to them, if any -- appended
+    # after the template's own tasks, continuing its sort order.
+    holder_assets = sorted(user.assets, key=lambda a: a.name)
+    next_order = (
+        db.session.query(db.func.max(HireEvent.sort_order))
+        .filter_by(candidate_id=candidate.id, timeline_type="offboarding")
+        .scalar()
+        or 0
+    ) + 1
+    for asset in holder_assets:
+        db.session.add(
+            HireEvent(
+                candidate_id=candidate.id,
+                title=f"Remove asset access: {asset.name}",
+                task_type=TASK_TYPE_MANUAL,
+                due_date=None,
+                assigned_to=None,
+                status="pending",
+                timeline_type="offboarding",
+                sort_order=next_order,
+            )
+        )
+        next_order += 1
+
+    # Deactivate immediately, and lock it so a later AD sync can't silently
+    # re-enable them just because IT hasn't disabled their AD account yet.
+    user.active = False
+    user.active_locked = True
+
+    db.session.commit()
+
+    flash(
+        f"{user.name} has been offboarded: their account is now deactivated, and a new "
+        f"Candidate record was created with {template_created + len(holder_assets)} "
+        "offboarding task(s).",
+        "success",
+    )
+    return redirect(url_for("candidates.detail", candidate_id=candidate.id))
+
+
 @auth_bp.route("/team/<int:user_id>/reset-password", methods=["POST"])
 @login_required
 @admin_required

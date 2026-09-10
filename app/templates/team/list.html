@@ -40,6 +40,10 @@
           <button type="submit" class="btn btn-sm btn-outline-warning">Reset password</button>
         </form>
         {% if user.id != current_user.id %}
+        <form action="{{ url_for('auth.team_offboard', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Offboard {{ user.name }}? This deactivates their account, creates a new Candidate record for tracking, and generates offboarding tasks{% if user.assets %} including removing their {{ user.assets | length }} assigned asset(s){% endif %}.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-outline-dark">Offboard</button>
+        </form>
         <form action="{{ url_for('auth.team_delete', user_id=user.id) }}" method="post" class="d-inline" onsubmit="return confirm('Remove {{ user.name }} from the team?');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>

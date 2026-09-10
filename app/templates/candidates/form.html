@@ -34,7 +34,7 @@
           </select>
         </div>
         <div class="col-md-6 mb-3">
-          <label class="form-label">Start date</label>
+          <label class="form-label">{{ 'Last day' if candidate and candidate.status == 'offboarding' else 'Start date' }}</label>
           <input type="date" class="form-control" name="start_date" value="{{ (form.start_date if form else (candidate.start_date.strftime('%Y-%m-%d') if candidate.start_date else '')) or '' }}">
         </div>
       </div>

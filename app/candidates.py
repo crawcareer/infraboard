@@ -28,6 +28,7 @@ from app.models import (
     TemplateEvent,
     HireEvent,
     CANDIDATE_STATUSES,
+    TIMELINE_TYPES,
     TASK_TYPE_MANUAL,
     EMAIL_TASK_TYPES,
     EMAIL_TASK_TYPE_LABELS,
@@ -135,6 +136,7 @@ def detail(candidate_id):
     users = User.query.filter_by(active=True).order_by(User.name).all()
     pre_hire = candidate.pre_hire_events().all()
     post_hire = candidate.post_hire_events().all()
+    offboarding = candidate.offboarding_events().all()
     notes = candidate.notes.all()
     resumes = candidate.resumes.order_by(Resume.uploaded_at.desc()).all()
     has_templates = TimelineTemplate.query.count() > 0
@@ -144,6 +146,7 @@ def detail(candidate_id):
         users=users,
         pre_hire=pre_hire,
         post_hire=post_hire,
+        offboarding=offboarding,
         notes=notes,
         resumes=resumes,
         has_templates=has_templates,
@@ -458,7 +461,7 @@ def add_event(candidate_id):
     error = None
     if not title:
         error = "Title is required."
-    elif timeline_type not in ("pre_hire", "post_hire"):
+    elif timeline_type not in TIMELINE_TYPES:
         error = "Invalid timeline type."
 
     due_date = None
@@ -541,7 +544,7 @@ def new_email_task(candidate_id):
             except ValueError:
                 error = "Due date must be a valid date."
 
-        if not error and timeline_type not in ("pre_hire", "post_hire"):
+        if not error and timeline_type not in TIMELINE_TYPES:
             error = "Invalid timeline type."
 
         if not error and not email_task_recipient(task_type, candidate):
@@ -612,7 +615,7 @@ def new_email_task(candidate_id):
         return redirect(url_for("candidates.detail", candidate_id=candidate.id))
 
     default_timeline_type = request.args.get("timeline_type", "pre_hire")
-    if default_timeline_type not in ("pre_hire", "post_hire"):
+    if default_timeline_type not in TIMELINE_TYPES:
         default_timeline_type = "pre_hire"
 
     return render_template(
