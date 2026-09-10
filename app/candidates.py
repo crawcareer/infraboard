@@ -30,6 +30,7 @@ from app.models import (
     CANDIDATE_STATUSES,
     TIMELINE_TYPES,
     TASK_TYPE_MANUAL,
+    RECURRENCE_UNITS,
     EMAIL_TASK_TYPES,
     EMAIL_TASK_TYPE_LABELS,
     email_task_recipient,
@@ -447,6 +448,34 @@ def generate_timelines(candidate_id):
 
 # --- Hire events (per-candidate timeline items) -----------------------------
 
+def _parse_recurrence(due_date):
+    """Parse+validate the is_recurring/recurrence_interval/recurrence_unit
+    fields from the current request's form. Returns
+    (is_recurring, interval, unit, error) -- error is None when valid.
+    Recurrence needs a due date: it's the anchor the first cycle (and
+    every reset afterward, via app/recurring_tasks.py) counts from."""
+    is_recurring = request.form.get("is_recurring") == "on"
+    if not is_recurring:
+        return False, None, None, None
+
+    if due_date is None:
+        return True, None, None, "A due date is required for a recurring task (it's the first occurrence)."
+
+    unit = request.form.get("recurrence_unit", "").strip()
+    if unit not in RECURRENCE_UNITS:
+        return True, None, None, "Invalid recurrence unit."
+
+    interval_raw = request.form.get("recurrence_interval", "").strip()
+    try:
+        interval = int(interval_raw)
+        if interval < 1:
+            raise ValueError
+    except ValueError:
+        return True, None, None, "Recurrence interval must be a whole number of at least 1."
+
+    return True, interval, unit, None
+
+
 @candidates_bp.route("/<int:candidate_id>/events", methods=["POST"])
 @login_required
 def add_event(candidate_id):
@@ -482,6 +511,9 @@ def add_event(candidate_id):
             if not User.query.get(assignee_id):
                 error = "Invalid assignee."
 
+    is_recurring, recurrence_interval, recurrence_unit, recurrence_error = _parse_recurrence(due_date)
+    error = error or recurrence_error
+
     if error:
         flash(error, "danger")
         return redirect(url_for("candidates.detail", candidate_id=candidate.id))
@@ -499,6 +531,9 @@ def add_event(candidate_id):
         status="pending",
         timeline_type=timeline_type,
         sort_order=max_order + 1,
+        is_recurring=is_recurring,
+        recurrence_interval=recurrence_interval,
+        recurrence_unit=recurrence_unit,
     )
     db.session.add(event)
     db.session.commit()
@@ -649,9 +684,17 @@ def edit_event(candidate_id, event_id):
             flash("Due date must be a valid date.", "danger")
             return redirect(url_for("candidates.detail", candidate_id=candidate_id))
 
+    is_recurring, recurrence_interval, recurrence_unit, recurrence_error = _parse_recurrence(due_date)
+    if recurrence_error:
+        flash(recurrence_error, "danger")
+        return redirect(url_for("candidates.detail", candidate_id=candidate_id))
+
     event.title = title
     event.description = description or None
     event.due_date = due_date
+    event.is_recurring = is_recurring
+    event.recurrence_interval = recurrence_interval
+    event.recurrence_unit = recurrence_unit
     db.session.commit()
     flash("Event updated.", "success")
     return redirect(url_for("candidates.detail", candidate_id=candidate_id))

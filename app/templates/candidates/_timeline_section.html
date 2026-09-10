@@ -28,6 +28,7 @@
         <td>
           <strong>{{ e.title }}</strong>
           {% if e.task_type != 'manual' %}<span class="badge bg-secondary">{{ email_task_type_labels.get(e.task_type, 'Email task') }}</span>{% endif %}
+          {% if e.is_recurring %}<span class="badge bg-info text-dark" title="Resets to pending with a new due date once this one passes">Recurs every {{ e.recurrence_interval }} {{ e.recurrence_unit }}</span>{% endif %}
           {% if e.description %}<div class="text-muted small">{{ e.description }}</div>{% endif %}
           {% if e.task_type != 'manual' %}
           <div class="text-muted small">
@@ -90,6 +91,18 @@
             <div class="col-md-2">
               <button type="submit" class="btn btn-sm btn-primary">Save</button>
             </div>
+            <div class="col-12 d-flex align-items-center flex-wrap gap-2">
+              <div class="form-check mb-0">
+                <input type="checkbox" class="form-check-input" id="recurring-edit-{{ e.id }}" name="is_recurring" {% if e.is_recurring %}checked{% endif %}>
+                <label class="form-check-label small" for="recurring-edit-{{ e.id }}">Recurring</label>
+              </div>
+              <span class="small text-muted">Recurs every</span>
+              <input type="number" name="recurrence_interval" class="form-control form-control-sm" style="width:5rem;" min="1" value="{{ e.recurrence_interval or 1 }}">
+              <select name="recurrence_unit" class="form-select form-select-sm" style="width:8rem;">
+                <option value="months" {% if e.recurrence_unit != 'years' %}selected{% endif %}>months</option>
+                <option value="years" {% if e.recurrence_unit == 'years' %}selected{% endif %}>years</option>
+              </select>
+            </div>
           </form>
         </td>
       </tr>
@@ -128,6 +141,19 @@
       </div>
       <div class="col-md-2">
         <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
+      </div>
+      <div class="col-12 d-flex align-items-center flex-wrap gap-2 mt-1">
+        <div class="form-check mb-0">
+          <input type="checkbox" class="form-check-input" id="recurring-{{ timeline_type }}" name="is_recurring">
+          <label class="form-check-label small" for="recurring-{{ timeline_type }}">Recurring</label>
+        </div>
+        <span class="small text-muted">Recurs every</span>
+        <input type="number" name="recurrence_interval" class="form-control form-control-sm" style="width:5rem;" min="1" value="1">
+        <select name="recurrence_unit" class="form-select form-select-sm" style="width:8rem;">
+          <option value="months">months</option>
+          <option value="years">years</option>
+        </select>
+        <span class="small text-muted">(needs a due date above; minimum 1 month)</span>
       </div>
     </form>
   </div>

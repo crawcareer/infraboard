@@ -22,6 +22,9 @@ CANDIDATE_STATUSES = (
 TIMELINE_TYPES = ("pre_hire", "post_hire", "offboarding")
 HIRE_EVENT_STATUSES = ("pending", "done")
 
+RECURRENCE_UNITS = ("months", "years")
+TASK_REMINDER_WINDOW_DAYS = 14
+
 TASK_TYPE_MANUAL = "manual"
 TASK_TYPE_INFRADAPT_ONBOARDING_EMAIL = "infradapt_onboarding_email"
 TASK_TYPE_REJECTION_EMAIL = "rejection_email"
@@ -404,6 +407,18 @@ class HireEvent(db.Model):
     email_subject = db.Column(db.String(255), nullable=True)
     email_body = db.Column(db.Text, nullable=True)
     email_sent_at = db.Column(db.DateTime, nullable=True)
+
+    # --- Recurrence ----------------------------------------------------
+    # Manual tasks only (see app/recurring_tasks.py). When a recurring
+    # task's due_date arrives or passes, process_recurring_tasks.py rolls
+    # due_date forward by recurrence_interval recurrence_units and resets
+    # status back to "pending" -- reset is triggered purely by the
+    # calendar, not by completion, and assigned_to carries over
+    # untouched. recurrence_interval/_unit are only meaningful when
+    # is_recurring is True.
+    is_recurring = db.Column(db.Boolean, nullable=False, default=False)
+    recurrence_interval = db.Column(db.Integer, nullable=True)
+    recurrence_unit = db.Column(db.String(10), nullable=True)
 
     creator = db.relationship("User", foreign_keys=[created_by])
 
