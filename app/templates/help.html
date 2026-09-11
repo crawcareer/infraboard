@@ -49,6 +49,13 @@
           exist &mdash; due dates get calculated from the candidate's start date. Each task can be assigned to a
           team member, given a due date, and checked off once it's done.
         </p>
+        <p>
+          Check <strong>Recurring</strong> (available when adding or editing a task) to have it repeat instead of
+          staying done &mdash; useful for things like a license renewal. Set how often ("Recurs every ___
+          months/years", minimum 1 month) and give it a due date. Once that due date arrives, the task
+          automatically gets a new due date that far out and reverts to pending, whether or not it was ever
+          checked off &mdash; the same person stays assigned each time around.
+        </p>
 
         <p><strong>Adding an automated email task</strong></p>
         <p>
@@ -177,9 +184,11 @@
             were created.
           </li>
           <li>
-            <strong>Task Reminders</strong> &mdash; a daily digest email to every user with pending tasks, listing
-            what's assigned to them with a link back to this site. Configure whether it's on, what time it goes
-            out, and the site's public URL for the link.
+            <strong>Task Reminders</strong> &mdash; a daily digest email to every user with pending tasks
+            <strong>due within the next 2 weeks</strong> (including anything already overdue), listing what's
+            assigned to them with a link back to this site. Tasks due further out, or with no due date at all,
+            are left out until they fall inside that window. Configure whether it's on, what time it goes out, and
+            the site's public URL for the link.
           </li>
           <li>
             <strong>User Asset Inventory</strong> &mdash; define the assets you want to track who holds (e.g. "Security
